@@ -22,7 +22,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
           
       - name: Get pnpm store directory
         shell: bash
@@ -43,11 +43,11 @@ jobs:
         
       - name: Build frontend
         working-directory: meituan-frontend
-        run: npm run build
+        run: pnpm run build
         
       - name: Build Electron app (macOS)
         working-directory: meituan-frontend
-        run: npm run electron:build:mac
+        run: pnpm run electron:build:mac
         # 如果需要代码签名,在 GitHub Secrets 中添加证书并取消下面的注释
         # env:
         #   CSC_LINK: ${{ secrets.MAC_CERT }}
