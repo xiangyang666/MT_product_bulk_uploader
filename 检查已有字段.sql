@@ -1,0 +1,19 @@
+-- 检查t_product表的所有字段
+USE meituan_product;
+
+SELECT 
+    COLUMN_NAME,
+    DATA_TYPE,
+    CHARACTER_MAXIMUM_LENGTH,
+    COLUMN_TYPE,
+    COLUMN_COMMENT
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'meituan_product'
+  AND TABLE_NAME = 't_product'
+ORDER BY ORDINAL_POSITION;
+
+-- 统计字段数量
+SELECT COUNT(*) AS total_columns 
+FROM INFORMATION_SCHEMA.COLUMNS 
+WHERE TABLE_SCHEMA = 'meituan_product' 
+  AND TABLE_NAME = 't_product';

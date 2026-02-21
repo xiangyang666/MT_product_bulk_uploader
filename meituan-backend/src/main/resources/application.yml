@@ -1,0 +1,58 @@
+# Spring Boot 配置
+spring:
+  application:
+    name: meituan-product-upload
+  
+  # 数据源配置（远程服务器）
+  datasource:
+    url: jdbc:mysql://106.55.102.48:3306/meituan_product?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: mysql_G4EcQ6
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+  
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
+      enabled: true
+
+# MyBatis Plus 配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.meituan.product.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 美团 API 配置
+meituan:
+  api:
+    base-url: https://api.meituan.com
+    timeout: 30000
+  upload:
+    batch-size: 500
+
+# MinIO 配置（远程服务器）
+minio:
+  endpoint: http://106.55.102.48
+  port: 9000
+  access-key: minio_cf4STY
+  secret-key: minio_ZGBzK7
+  bucket-name: meituan-products
+
+# 文件存储配置
+file:
+  upload:
+    template-path: ./uploads/templates/
+    retention-days: 30
+
+# 日志配置
+logging:
+  level:
+    com.meituan.product: INFO
+    org.springframework: INFO

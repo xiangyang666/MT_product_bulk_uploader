@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.meituan.product.mapper.ProductMapper">
+    
+    <!-- 批量插入商品 -->
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO t_product (
+            merchant_id, product_name, category_id, price, stock, description, image_url, status,
+            sku_id, upc_ean, category_name, app_spu_code,
+            product_image, cover_video, spec_image, spec_image_url,
+            store_category, store_category_count, spec_name, store_code,
+            sale_status, monthly_sales, weight, weight_unit, min_purchase, shelf_code,
+            selling_point, selling_point_period, text_detail, image_detail, brand_image_detail,
+            production_date, expiry_date, is_near_expiry, is_expired,
+            delivery_mode, presale_delivery_time, available_time,
+            product_attributes, is_recommended, no_reason_return, is_combo, combo_products, is_four_wheel_delivery,
+            compliance_status, violation_offline, missing_required_info, audit_status
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.merchantId}, #{item.productName}, #{item.categoryId}, #{item.price}, 
+                #{item.stock}, #{item.description}, #{item.imageUrl}, #{item.status},
+                #{item.skuId}, #{item.upcEan}, #{item.categoryName}, #{item.appSpuCode},
+                #{item.productImage}, #{item.coverVideo}, #{item.specImage}, #{item.specImageUrl},
+                #{item.storeCategory}, #{item.storeCategoryCount}, #{item.specName}, #{item.storeCode},
+                #{item.saleStatus}, #{item.monthlySales}, #{item.weight}, #{item.weightUnit}, #{item.minPurchase}, #{item.shelfCode},
+                #{item.sellingPoint}, #{item.sellingPointPeriod}, #{item.textDetail}, #{item.imageDetail}, #{item.brandImageDetail},
+                #{item.productionDate}, #{item.expiryDate}, #{item.isNearExpiry}, #{item.isExpired},
+                #{item.deliveryMode}, #{item.presaleDeliveryTime}, #{item.availableTime},
+                #{item.productAttributes}, #{item.isRecommended}, #{item.noReasonReturn}, #{item.isCombo}, #{item.comboProducts}, #{item.isFourWheelDelivery},
+                #{item.complianceStatus}, #{item.violationOffline}, #{item.missingRequiredInfo}, #{item.auditStatus}
+            )
+        </foreach>
+    </insert>
+    
+    <!-- 根据商家ID查询商品列表 -->
+    <select id="selectByMerchantId" resultType="com.meituan.product.entity.Product">
+        SELECT * FROM t_product
+        WHERE merchant_id = #{merchantId} AND deleted = 0
+        ORDER BY created_time DESC
+    </select>
+    
+    <!-- 根据商家ID删除商品（物理删除） -->
+    <delete id="deleteByMerchantId">
+        DELETE FROM t_product
+        WHERE merchant_id = #{merchantId}
+    </delete>
+    
+</mapper>

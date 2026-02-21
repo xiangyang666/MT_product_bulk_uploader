@@ -1,0 +1,45 @@
+{
+  "templateName": "美团商品上传模板",
+  "version": "1.0",
+  "columns": [
+    {
+      "field": "productName",
+      "headerName": "商品名称",
+      "required": true,
+      "maxLength": 255
+    },
+    {
+      "field": "categoryId",
+      "headerName": "类目ID",
+      "required": true,
+      "pattern": "^[0-9]{10}$"
+    },
+    {
+      "field": "price",
+      "headerName": "价格",
+      "required": true,
+      "type": "decimal",
+      "min": 0.01,
+      "max": 99999.99
+    },
+    {
+      "field": "stock",
+      "headerName": "库存",
+      "required": false,
+      "type": "integer",
+      "min": 0
+    },
+    {
+      "field": "description",
+      "headerName": "商品描述",
+      "required": false,
+      "maxLength": 1000
+    },
+    {
+      "field": "imageUrl",
+      "headerName": "商品图片URL",
+      "required": false,
+      "maxLength": 500
+    }
+  ]
+}

@@ -1,0 +1,192 @@
+/* iPhone风格主题样式 */
+
+:root {
+  /* iPhone配色方案 */
+  --iphone-primary: #007AFF; /* iOS蓝色 */
+  --iphone-success: #34C759; /* iOS绿色 */
+  --iphone-warning: #FF9500; /* iOS橙色 */
+  --iphone-danger: #FF3B30; /* iOS红色 */
+  --iphone-gray: #8E8E93; /* iOS灰色 */
+  
+  /* 背景色 */
+  --iphone-bg-primary: #FFFFFF;
+  --iphone-bg-secondary: #F2F2F7;
+  --iphone-bg-tertiary: #E5E5EA;
+  
+  /* 文字颜色 */
+  --iphone-text-primary: #000000;
+  --iphone-text-secondary: #3C3C43;
+  --iphone-text-tertiary: #8E8E93;
+  
+  /* 圆角 */
+  --iphone-radius-small: 8px;
+  --iphone-radius-medium: 12px;
+  --iphone-radius-large: 16px;
+  --iphone-radius-xlarge: 20px;
+  
+  /* 阴影 */
+  --iphone-shadow-small: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --iphone-shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --iphone-shadow-large: 0 8px 24px rgba(0, 0, 0, 0.16);
+  
+  /* 间距 */
+  --iphone-spacing-xs: 4px;
+  --iphone-spacing-sm: 8px;
+  --iphone-spacing-md: 16px;
+  --iphone-spacing-lg: 24px;
+  --iphone-spacing-xl: 32px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 
+               'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--iphone-bg-secondary);
+  color: var(--iphone-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 覆盖Element Plus样式，使其符合iPhone风格 */
+.el-button {
+  border-radius: var(--iphone-radius-medium);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  transition: all 0.2s ease;
+}
+
+.el-button--primary {
+  background-color: var(--iphone-primary);
+  border-color: var(--iphone-primary);
+}
+
+.el-button--success {
+  background-color: var(--iphone-success);
+  border-color: var(--iphone-success);
+}
+
+.el-button--warning {
+  background-color: var(--iphone-warning);
+  border-color: var(--iphone-warning);
+}
+
+.el-button--danger {
+  background-color: var(--iphone-danger);
+  border-color: var(--iphone-danger);
+}
+
+.el-card {
+  border-radius: var(--iphone-radius-large);
+  box-shadow: var(--iphone-shadow-small);
+  border: none;
+  background-color: var(--iphone-bg-primary);
+}
+
+.el-table {
+  border-radius: var(--iphone-radius-medium);
+  overflow: hidden;
+}
+
+.el-dialog {
+  border-radius: var(--iphone-radius-xlarge);
+  box-shadow: var(--iphone-shadow-large);
+}
+
+.el-message {
+  border-radius: var(--iphone-radius-medium);
+  box-shadow: var(--iphone-shadow-medium);
+}
+
+/* iPhone风格的卡片容器 */
+.iphone-card {
+  background-color: var(--iphone-bg-primary);
+  border-radius: var(--iphone-radius-large);
+  padding: var(--iphone-spacing-lg);
+  box-shadow: var(--iphone-shadow-small);
+  margin-bottom: var(--iphone-spacing-md);
+}
+
+/* iPhone风格的列表项 */
+.iphone-list-item {
+  background-color: var(--iphone-bg-primary);
+  border-radius: var(--iphone-radius-medium);
+  padding: var(--iphone-spacing-md);
+  margin-bottom: var(--iphone-spacing-sm);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.iphone-list-item:hover {
+  background-color: var(--iphone-bg-tertiary);
+  transform: translateY(-2px);
+  box-shadow: var(--iphone-shadow-small);
+}
+
+/* iPhone风格的标题 */
+.iphone-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--iphone-text-primary);
+  margin-bottom: var(--iphone-spacing-lg);
+  letter-spacing: -0.5px;
+}
+
+.iphone-subtitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--iphone-text-secondary);
+  margin-bottom: var(--iphone-spacing-md);
+}
+
+/* iPhone风格的分隔线 */
+.iphone-divider {
+  height: 1px;
+  background-color: var(--iphone-bg-tertiary);
+  margin: var(--iphone-spacing-md) 0;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--iphone-gray);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--iphone-text-tertiary);
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}

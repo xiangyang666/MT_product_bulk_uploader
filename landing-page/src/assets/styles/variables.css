@@ -1,0 +1,66 @@
+/* Meituan Brand Colors and Design Tokens */
+:root {
+  /* Meituan Brand Colors */
+  --color-primary: #FFD100;           /* Meituan Yellow */
+  --color-primary-dark: #E6BC00;      /* Darker yellow for hover */
+  --color-primary-light: #FFE566;     /* Lighter yellow for accents */
+  
+  /* Soft Light Backgrounds */
+  --color-bg-primary: #F8F9FA;        /* Light gray background */
+  --color-bg-secondary: #FFFFFF;      /* White background */
+  --color-bg-tertiary: #F0F2F5;       /* Slightly darker gray */
+  --color-bg-accent: #FFF9E6;         /* Light yellow tint */
+  
+  /* Text Colors */
+  --color-text-primary: #1A1A1A;      /* Dark text */
+  --color-text-secondary: #4A5568;    /* Medium gray text */
+  --color-text-muted: #718096;        /* Muted text */
+  
+  /* Syntax Highlighting Colors - Light Theme */
+  --color-syntax-keyword: #D73A49;    /* Red for keywords */
+  --color-syntax-string: #22863A;     /* Green for strings */
+  --color-syntax-function: #6F42C1;   /* Purple for functions */
+  --color-syntax-comment: #6A737D;    /* Gray for comments */
+  --color-syntax-number: #005CC5;     /* Blue for numbers */
+  
+  /* UI Elements */
+  --color-border: #E2E8F0;            /* Light borders */
+  --color-hover: rgba(255, 209, 0, 0.08); /* Subtle hover overlay */
+  --color-shadow: rgba(0, 0, 0, 0.08); /* Soft shadows */
+  
+  /* Spacing */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 2rem;
+  --spacing-lg: 4rem;
+  --spacing-xl: 6rem;
+  
+  /* Typography */
+  --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  --font-family-code: 'Fira Code', 'Consolas', 'Monaco', monospace;
+  
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 2rem;
+  --font-size-4xl: 2.5rem;
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 300ms ease;
+  --transition-slow: 500ms ease;
+  
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  
+  /* Shadows - Soft and friendly */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.15);
+}

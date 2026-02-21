@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT 认证测试工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .status-bar {
+            background-color: #fff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            background-color: #fff;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #2196F3;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #c62828;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+        }
+        input {
+            padding: 10px;
+            margin: 5px;
+            width: 250px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .token-display {
+            background-color: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            word-break: break-all;
+            font-size: 11px;
+        }
+        .info {
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border-left: 4px solid #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 JWT 认证测试工具</h1>
+    
+    <div class="status-bar">
+        <strong>连接状态:</strong> <span id="connectionStatus">未测试</span><br>
+        <strong>认证状态:</strong> <span id="authStatus">未登录</span><br>
+        <strong>当前用户:</strong> <span id="currentUser">-</span>
+        <div id="tokenDisplay" class="token-display" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 1. 用户登录</h2>
+        <div class="info">
+            测试 JWT Token 生成功能。登录成功后，Token 会自动保存到 localStorage。
+        </div>
+        <input type="text" id="username" placeholder="用户名" value="admin">
+        <input type="password" id="password" placeholder="密码" value="admin123">
+        <button onclick="testLogin()">🔑 登录</button>
+        <div id="loginResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>👤 2. 获取用户信息（需要认证）</h2>
+        <div class="info">
+            测试 JWT Token 验证功能。此接口需要在请求头中携带有效的 Token。
+        </div>
+        <button onclick="testGetUserInfo()">📋 获取用户信息</button>
+        <div id="userInfoResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 3. 获取商品统计（需要认证）</h2>
+        <div class="info">
+            测试受保护的业务接口。验证 JWT 过滤器是否正确拦截和验证请求。
+        </div>
+        <button onclick="testGetStats()">📈 获取统计数据</button>
+        <div id="statsResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔓 4. 退出登录</h2>
+        <div class="info">
+            清除本地存储的 Token，模拟用户退出登录。
+        </div>
+        <button onclick="testLogout()">🚪 退出登录</button>
+        <div id="logoutResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 5. 测试无 Token 访问（应该失败）</h2>
+        <div class="info">
+            测试未携带 Token 访问受保护接口，应该返回 403 错误。
+        </div>
+        <button onclick="testUnauthorizedAccess()">🚫 无认证访问</button>
+        <div id="unauthorizedResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://106.55.102.48:8080/api';
+        let token = localStorage.getItem('token');
+
+        function updateStatus() {
+            const authStatusEl = document.getElementById('authStatus');
+            const currentUserEl = document.getElementById('currentUser');
+            const tokenDisplayEl = document.getElementById('tokenDisplay');
+            
+            if (token) {
+                authStatusEl.textContent = '✅ 已登录';
+                authStatusEl.style.color = '#2e7d32';
+                
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    currentUserEl.textContent = payload.username || '-';
+                    tokenDisplayEl.textContent = 'Token: ' + token;
+                    tokenDisplayEl.style.display = 'block';
+                } catch (e) {
+                    currentUserEl.textContent = '-';
+                }
+            } else {
+                authStatusEl.textContent = '❌ 未登录';
+                authStatusEl.style.color = '#c62828';
+                currentUserEl.textContent = '-';
+                tokenDisplayEl.style.display = 'none';
+            }
+        }
+
+        function displayResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = JSON.stringify(data, null, 2);
+            element.className = isError ? 'result error' : 'result success';
+        }
+
+        async function testLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                
+                if (data.code === 200 && data.data && data.data.token) {
+                    token = data.data.token;
+                    localStorage.setItem('token', token);
+                    updateStatus();
+                    displayResult('loginResult', { ...data, note: '✅ Token 已保存' });
+                } else {
+                    displayResult('loginResult', data, true);
+                }
+            } catch (error) {
+                displayResult('loginResult', { error: '连接失败: ' + error.message }, true);
+            }
+        }
+
+        async function testGetUserInfo() {
+            if (!token) {
+                displayResult('userInfoResult', { error: '❌ 请先登录' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/userinfo`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                displayResult('userInfoResult', data, data.code !== 200);
+            } catch (error) {
+                displayResult('userInfoResult', { error: error.message }, true);
+            }
+        }
+
+        async function testGetStats() {
+            if (!token) {
+                displayResult('statsResult', { error: '❌ 请先登录' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/products/stats?merchantId=1`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                displayResult('statsResult', data, data.code !== 200);
+            } catch (error) {
+                displayResult('statsResult', { error: error.message }, true);
+            }
+        }
+
+        async function testLogout() {
+            if (!token) {
+                displayResult('logoutResult', { error: '❌ 未登录' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    localStorage.removeItem('token');
+                    token = null;
+                    updateStatus();
+                    displayResult('logoutResult', { ...data, note: '✅ Token 已清除' });
+                } else {
+                    displayResult('logoutResult', data, true);
+                }
+            } catch (error) {
+                displayResult('logoutResult', { error: error.message }, true);
+            }
+        }
+
+        async function testUnauthorizedAccess() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/products/stats?merchantId=1`, {
+                    method: 'GET'
+                });
+
+                const data = await response.json();
+                displayResult('unauthorizedResult', {
+                    status: response.status,
+                    data: data,
+                    note: response.status === 403 ? '✅ 正确拦截' : '❌ 应该返回 403'
+                }, response.status !== 403);
+            } catch (error) {
+                displayResult('unauthorizedResult', { error: error.message });
+            }
+        }
+
+        async function testConnection() {
+            const statusEl = document.getElementById('connectionStatus');
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'test', password: 'test' })
+                });
+                statusEl.textContent = '✅ 连接正常';
+                statusEl.style.color = '#2e7d32';
+            } catch (error) {
+                statusEl.textContent = '❌ 连接失败';
+                statusEl.style.color = '#c62828';
+            }
+        }
+
+        window.onload = function() {
+            updateStatus();
+            testConnection();
+        };
+    </script>
+</body>
+</html>
