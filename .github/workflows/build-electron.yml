@@ -32,10 +32,10 @@ jobs:
       - name: Build Electron app (macOS)
         working-directory: meituan-frontend
         run: npm run electron:build:mac
-        env:
-          # 如果需要代码签名,在 GitHub Secrets 中添加证书
-          # CSC_LINK: ${{ secrets.MAC_CERT }}
-          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+        # 如果需要代码签名,在 GitHub Secrets 中添加证书并取消下面的注释
+        # env:
+        #   CSC_LINK: ${{ secrets.MAC_CERT }}
+        #   CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
           
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
