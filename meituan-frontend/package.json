@@ -6,13 +6,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --mode production",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "vite build && electron-builder",
-    "electron:build:win": "vite build && electron-builder --win",
-    "electron:build:mac": "vite build && electron-builder --mac",
-    "electron:build:all": "vite build && electron-builder --win --mac"
+    "electron:build": "vite build --mode production && electron-builder",
+    "electron:build:win": "vite build --mode production && electron-builder --win",
+    "electron:build:mac": "vite build --mode production && electron-builder --mac",
+    "electron:build:all": "vite build --mode production && electron-builder --win --mac"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

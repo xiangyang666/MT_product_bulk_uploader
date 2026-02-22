@@ -104,21 +104,8 @@ function createWindow() {
         if (mainWindow.webContents.isDevToolsOpened()) {
           mainWindow.webContents.closeDevTools()
         } else {
-          // 显示密码输入对话框
-          const password = dialog.showMessageBoxSync(mainWindow, {
-            type: 'question',
-            buttons: ['取消', '确定'],
-            defaultId: 1,
-            title: '开发者工具',
-            message: '请输入密码以打开开发者工具',
-            detail: '提示：请联系管理员获取密码',
-            cancelId: 0
-          })
-          
-          if (password === 1) {
-            // 用户点击了确定，使用 IPC 从渲染进程获取密码
-            mainWindow.webContents.send('request-devtools-password')
-          }
+          // 请求渲染进程显示密码输入对话框
+          mainWindow.webContents.send('request-devtools-password')
         }
       }
     }
@@ -154,11 +141,13 @@ ipcMain.on('window-close', () => {
 
 // 验证开发者工具密码
 ipcMain.on('verify-devtools-password', (event, password) => {
-  if (password === DEV_TOOLS_PASSWORD) {
-    mainWindow.webContents.openDevTools()
-    event.reply('devtools-password-result', { success: true })
-  } else {
-    event.reply('devtools-password-result', { success: false, message: '密码错误' })
+  if (mainWindow) {
+    if (password === DEV_TOOLS_PASSWORD) {
+      mainWindow.webContents.openDevTools()
+      event.reply('devtools-password-result', { success: true })
+    } else {
+      event.reply('devtools-password-result', { success: false, message: '密码错误' })
+    }
   }
 })
 
