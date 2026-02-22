@@ -22,9 +22,8 @@
               {{ detail }}
             </li>
           </ul>
-          <div v-if="step.image" class="step-image-placeholder">
-            <span class="image-icon">🖼️</span>
-            <span class="image-text">示意图</span>
+          <div v-if="step.image" class="step-image">
+            <img :src="step.image" :alt="step.title" />
           </div>
         </div>
       </div>
@@ -47,7 +46,7 @@ interface TutorialStep {
   title: string
   description: string
   details: string[]
-  image?: boolean
+  image?: string
 }
 
 const tutorialSteps: TutorialStep[] = [
@@ -61,7 +60,7 @@ const tutorialSteps: TutorialStep[] = [
       '确保必填字段完整（商品名称、价格、类目等）',
       '检查数据格式是否符合要求'
     ],
-    image: true
+    image: '/tutorial/1.png'
   },
   {
     id: 2,
@@ -73,7 +72,7 @@ const tutorialSteps: TutorialStep[] = [
       '系统会自动识别美团格式',
       '等待文件上传和解析完成'
     ],
-    image: true
+    image: '/tutorial/2.png'
   },
   {
     id: 3,
@@ -85,7 +84,7 @@ const tutorialSteps: TutorialStep[] = [
       '检查商品图片是否正确',
       '验证商品信息的完整性'
     ],
-    image: true
+    image: '/tutorial/3.png'
   },
   {
     id: 4,
@@ -97,7 +96,7 @@ const tutorialSteps: TutorialStep[] = [
       '查看上传进度和结果',
       '处理上传失败的商品（如有）'
     ],
-    image: true
+    image: '/tutorial/4.png'
   }
 ]
 </script>
@@ -203,26 +202,17 @@ const tutorialSteps: TutorialStep[] = [
   font-weight: 700;
 }
 
-.step-image-placeholder {
-  background-color: var(--color-bg-tertiary);
-  border: 2px dashed var(--color-border);
+.step-image {
+  margin-top: var(--spacing-md);
   border-radius: var(--radius-sm);
-  padding: var(--spacing-xl);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  min-height: 200px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
 }
 
-.image-icon {
-  font-size: 3rem;
-}
-
-.image-text {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+.step-image img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .tutorial-footer {
@@ -285,9 +275,12 @@ const tutorialSteps: TutorialStep[] = [
     font-size: var(--font-size-xl);
   }
   
-  .step-image-placeholder {
-    min-height: 150px;
-    padding: var(--spacing-md);
+  .step-image {
+    border-radius: var(--radius-xs);
+  }
+  
+  .step-image img {
+    border-radius: var(--radius-xs);
   }
 }
 </style>

@@ -153,6 +153,29 @@ public class AppVersionService {
     }
     
     /**
+     * 更新版本信息
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateVersion(Long id, String version, String releaseNotes) {
+        AppVersion appVersion = appVersionMapper.selectById(id);
+        if (appVersion == null) {
+            throw new RuntimeException("版本不存在");
+        }
+        
+        // 更新版本号和发布说明
+        if (version != null && !version.isEmpty()) {
+            appVersion.setVersion(version);
+        }
+        if (releaseNotes != null) {
+            appVersion.setReleaseNotes(releaseNotes);
+        }
+        
+        appVersionMapper.updateById(appVersion);
+        
+        log.info("更新版本信息: {} - {}", appVersion.getPlatform(), appVersion.getVersion());
+    }
+    
+    /**
      * 删除版本
      */
     @Transactional(rollbackFor = Exception.class)

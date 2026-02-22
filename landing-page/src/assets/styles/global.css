@@ -105,20 +105,30 @@ code, pre {
   color: var(--color-text-primary);
 }
 
-/* Scrollbar styling for webkit browsers */
+/* Scrollbar styling - hidden */
 ::-webkit-scrollbar {
-  width: 10px;
+  display: none;
+  width: 0px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-tertiary);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: var(--radius-sm);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-primary);
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: none;
+}
+
+/* IE and Edge */
+body {
+  -ms-overflow-style: none;
 }

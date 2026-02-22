@@ -32,12 +32,19 @@ defineProps<Props>()
 
 <style scoped>
 .features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 24px;
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px 0;
+}
+
+.feature-card {
+  flex: 0 0 calc(25% - 18px);
+  max-width: calc(25% - 18px);
+  min-width: 260px;
 }
 
 .feature-card {
@@ -162,13 +169,23 @@ defineProps<Props>()
 }
 
 /* Responsive */
+@media (max-width: 968px) {
+  .feature-card {
+    flex: 0 0 calc(50% - 12px);
+    max-width: calc(50% - 12px);
+    min-width: 240px;
+  }
+}
+
 @media (max-width: 768px) {
   .features-grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 16px;
   }
   
   .feature-card {
+    flex: 0 0 calc(50% - 8px);
+    max-width: calc(50% - 8px);
+    min-width: 200px;
     padding: 24px 20px;
     border-radius: 16px;
   }
@@ -189,8 +206,10 @@ defineProps<Props>()
 }
 
 @media (max-width: 480px) {
-  .features-grid {
-    grid-template-columns: 1fr;
+  .feature-card {
+    flex: 0 0 100%;
+    max-width: 100%;
+    min-width: auto;
   }
 }
 </style>

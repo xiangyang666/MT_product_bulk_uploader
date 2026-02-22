@@ -147,6 +147,42 @@ public class AppVersionController {
     }
     
     /**
+     * 更新版本信息
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> updateVersion(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> requestBody,
+            HttpServletRequest httpRequest) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // 验证管理员权限
+            Long userId = getUserIdFromRequest(httpRequest);
+            
+            String version = requestBody.get("version");
+            String releaseNotes = requestBody.get("releaseNotes");
+            
+            appVersionService.updateVersion(id, version, releaseNotes);
+            
+            response.put("code", 200);
+            response.put("message", "更新成功");
+            response.put("data", null);
+            
+            log.info("用户 {} 更新版本 {} 信息", userId, id);
+            
+        } catch (Exception e) {
+            log.error("更新版本信息失败", e);
+            response.put("code", 500);
+            response.put("message", "更新失败: " + e.getMessage());
+            response.put("data", null);
+        }
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
      * 删除版本
      */
     @DeleteMapping("/{id}")
