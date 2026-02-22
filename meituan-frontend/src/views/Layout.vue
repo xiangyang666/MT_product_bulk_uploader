@@ -113,7 +113,7 @@
                 <el-avatar :size="36" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" class="user-avatar" />
                 <div class="user-details">
                   <span class="username">{{ userStore.userInfo.username || '用户' }}</span>
-                  <span class="user-role">管理员</span>
+                  <span class="user-role">{{ getRoleLabel(userStore.userInfo.role) }}</span>
                 </div>
                 <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
               </div>
@@ -192,6 +192,16 @@ const hasPermission = (requiredRoles) => {
   return requiredRoles.includes(userRole.value)
 }
 
+// 获取角色标签
+const getRoleLabel = (role) => {
+  const roleMap = {
+    'SUPER_ADMIN': '超级管理员',
+    'ADMIN': '管理员',
+    'USER': '普通用户'
+  }
+  return roleMap[role] || '用户'
+}
+
 // 菜单映射
 const menuMap = {
   '/': '首页',
@@ -219,9 +229,17 @@ const toggleSidebar = () => {
 
 // 刷新当前页面
 const handleRefresh = () => {
-  // 使用router的replace方法实现局部刷新
+  // 使用 router 的 replace 方法实现局部刷新
   const currentPath = route.path
-  router.replace({ path: '/redirect' + currentPath })
+  // 确保不在 redirect 路径时才执行刷新
+  if (!currentPath.startsWith('/redirect')) {
+    router.replace({ path: '/redirect' + currentPath }).catch(err => {
+      // 忽略导航重复错误
+      if (err.name !== 'NavigationDuplicated') {
+        console.error('刷新页面失败:', err)
+      }
+    })
+  }
 }
 
 const handleCommand = async (command) => {

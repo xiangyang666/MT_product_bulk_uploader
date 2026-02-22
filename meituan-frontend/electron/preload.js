@@ -11,6 +11,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximizeWindow: () => ipcRenderer.send('window-maximize'),
   closeWindow: () => ipcRenderer.send('window-close'),
   
+  // 开发者工具密码验证
+  onRequestDevToolsPassword: (callback) => {
+    ipcRenderer.on('request-devtools-password', callback)
+  },
+  verifyDevToolsPassword: (password) => ipcRenderer.send('verify-devtools-password', password),
+  onDevToolsPasswordResult: (callback) => {
+    ipcRenderer.on('devtools-password-result', (event, result) => callback(result))
+  },
+  
   // 系统信息
   platform: process.platform
 })

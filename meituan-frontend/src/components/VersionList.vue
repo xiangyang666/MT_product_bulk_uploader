@@ -11,7 +11,7 @@
           <div class="version-cell">
             <span class="version-number">v{{ row.version }}</span>
             <el-tag v-if="row.isLatest" type="success" size="small" class="latest-tag">
-              最新
+              官网展示
             </el-tag>
           </div>
         </template>
@@ -43,7 +43,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="操作" width="220" fixed="right">
+      <el-table-column label="操作" width="300" fixed="right">
         <template #default="{ row }">
           <el-button
             v-if="!row.isLatest"
@@ -52,7 +52,18 @@
             link
             @click="handleSetLatest(row)"
           >
-            设为最新
+            设为官网展示
+          </el-button>
+          <el-tag v-else type="success" size="small">
+            当前展示版本
+          </el-tag>
+          <el-button
+            type="warning"
+            size="small"
+            link
+            @click="handleEdit(row)"
+          >
+            编辑
           </el-button>
           <el-button
             type="success"
@@ -101,6 +112,45 @@
     <el-empty v-if="!loading && versions.length === 0" description="暂无版本记录">
       <el-button type="primary" @click="$emit('upload')">上传第一个版本</el-button>
     </el-empty>
+
+    <!-- 编辑版本对话框 -->
+    <el-dialog
+      v-model="editDialogVisible"
+      title="编辑版本信息"
+      width="600px"
+      @close="handleEditDialogClose"
+    >
+      <el-form
+        ref="editFormRef"
+        :model="editForm"
+        :rules="editRules"
+        label-width="100px"
+      >
+        <el-form-item label="版本号" prop="version">
+          <el-input v-model="editForm.version" placeholder="例如：1.0.0" />
+        </el-form-item>
+        <el-form-item label="平台">
+          <el-input v-model="editForm.platform" disabled />
+        </el-form-item>
+        <el-form-item label="文件名">
+          <el-input v-model="editForm.fileName" disabled />
+        </el-form-item>
+        <el-form-item label="发布说明" prop="releaseNotes">
+          <el-input
+            v-model="editForm.releaseNotes"
+            type="textarea"
+            :rows="6"
+            placeholder="请输入版本更新说明..."
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleEditSubmit" :loading="editSubmitting">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -108,6 +158,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getVersionList, setLatestVersion, deleteVersion, getDownloadUrl } from '@/api'
+import request from '@/api/index.js'
 
 const props = defineProps({
   platform: {
@@ -124,6 +175,25 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 
+// 编辑相关
+const editDialogVisible = ref(false)
+const editFormRef = ref(null)
+const editSubmitting = ref(false)
+const editForm = ref({
+  id: null,
+  version: '',
+  platform: '',
+  fileName: '',
+  releaseNotes: ''
+})
+
+const editRules = {
+  version: [
+    { required: true, message: '请输入版本号', trigger: 'blur' },
+    { pattern: /^\d+\.\d+\.\d+$/, message: '版本号格式应为 x.x.x', trigger: 'blur' }
+  ]
+}
+
 // 加载版本列表
 const loadVersions = async () => {
   loading.value = true
@@ -139,12 +209,12 @@ const loadVersions = async () => {
   }
 }
 
-// 设置为最新版本
+// 设置为官网展示版本
 const handleSetLatest = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `确定将版本 ${row.version} 设置为最新版本吗？`,
-      '确认操作',
+      `确定将版本 ${row.version} 设置为官网展示版本吗？设置后，用户在官网将看到并下载此版本。`,
+      '设置官网展示版本',
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
@@ -153,15 +223,59 @@ const handleSetLatest = async (row) => {
     )
 
     await setLatestVersion(row.id)
-    ElMessage.success('设置成功')
+    ElMessage.success('设置成功，官网将展示此版本')
     loadVersions()
     emit('refresh')
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('设置最新版本失败:', error)
+      console.error('设置展示版本失败:', error)
       ElMessage.error('设置失败')
     }
   }
+}
+
+// 编辑版本
+const handleEdit = (row) => {
+  editForm.value = {
+    id: row.id,
+    version: row.version,
+    platform: row.platform,
+    fileName: row.fileName,
+    releaseNotes: row.releaseNotes || ''
+  }
+  editDialogVisible.value = true
+}
+
+// 提交编辑
+const handleEditSubmit = async () => {
+  if (!editFormRef.value) return
+  
+  await editFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    
+    editSubmitting.value = true
+    try {
+      await request.put(`/app-versions/${editForm.value.id}`, {
+        version: editForm.value.version,
+        releaseNotes: editForm.value.releaseNotes
+      })
+      
+      ElMessage.success('更新成功')
+      editDialogVisible.value = false
+      loadVersions()
+      emit('refresh')
+    } catch (error) {
+      console.error('更新版本信息失败:', error)
+      ElMessage.error('更新失败')
+    } finally {
+      editSubmitting.value = false
+    }
+  })
+}
+
+// 关闭编辑对话框
+const handleEditDialogClose = () => {
+  editFormRef.value?.resetFields()
 }
 
 // 下载版本

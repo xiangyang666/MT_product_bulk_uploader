@@ -50,6 +50,30 @@ body {
   color: var(--iphone-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* 禁止文本选择和复制 */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 禁止所有元素的文本选择 */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 输入框允许文本选择 */
+input,
+textarea,
+.el-input__inner,
+.el-textarea__inner {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 }
 
 #app {
@@ -156,10 +180,11 @@ body {
   margin: var(--iphone-spacing-md) 0;
 }
 
-/* 滚动条样式 */
+/* 滚动条样式 - 隐藏滚动条但保持滚动功能 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0px;
+  height: 0px;
+  display: none;
 }
 
 ::-webkit-scrollbar-track {
@@ -167,12 +192,21 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--iphone-gray);
-  border-radius: 4px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--iphone-text-tertiary);
+  background: transparent;
+}
+
+/* Firefox 隐藏滚动条 */
+* {
+  scrollbar-width: none;
+}
+
+/* IE 隐藏滚动条 */
+body {
+  -ms-overflow-style: none;
 }
 
 /* 动画效果 */

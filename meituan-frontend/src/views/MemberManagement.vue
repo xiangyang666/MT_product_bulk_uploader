@@ -144,7 +144,6 @@
           <el-input
             v-model="formData.username"
             placeholder="请输入用户名"
-            :disabled="isEdit"
           />
         </el-form-item>
         <el-form-item label="密码" prop="password" v-if="!isEdit">
@@ -223,6 +222,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
 import {
   getMemberList,
   createMember,
@@ -231,6 +231,9 @@ import {
   changeMemberPassword,
   changeMemberStatus
 } from '@/api/member'
+
+// 用户 store
+const userStore = useUserStore()
 
 // 当前用户角色（临时硬编码，实际应从store获取）
 const currentUserRole = ref('SUPER_ADMIN')
@@ -421,6 +424,11 @@ const handleSubmit = async () => {
           status: formData.status
         })
         ElMessage.success('更新成功')
+        
+        // 如果修改的是当前登录用户，刷新用户信息
+        if (formData.id === userStore.userInfo.id) {
+          await userStore.getUserInfo()
+        }
       } else {
         await createMember(formData)
         ElMessage.success('创建成功')
