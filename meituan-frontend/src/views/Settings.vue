@@ -64,23 +64,41 @@
         </el-row>
 
         <!-- 应用版本管理 -->
-        <div class="version-management-card">
-          <div class="card-header">
-            <h3>应用版本管理</h3>
-            <el-button type="primary" @click="showUploadDialog" style="background-color: #FFD100; border-color: #FFD100; color: #333;">
-              <el-icon><Upload /></el-icon>
-              上传新版本
-            </el-button>
+        <div class="version-management-card" :class="{ 'restricted': !isAdmin }">
+          <!-- 权限遮罩层 -->
+          <div v-if="!isAdmin" class="permission-overlay">
+            <div class="permission-notice">
+              <el-icon class="notice-icon"><Lock /></el-icon>
+              <div class="notice-title">需要admin-plus管理员权限</div>
+              <div class="notice-description">应用版本管理功能仅对admin-plus管理员开放</div>
+            </div>
           </div>
           
-          <el-tabs v-model="versionTab" @tab-change="handleVersionTabChange">
-            <el-tab-pane label="Windows" name="Windows">
-              <version-list ref="windowsListRef" platform="Windows" @upload="showUploadDialog" @refresh="handleVersionRefresh" />
-            </el-tab-pane>
-            <el-tab-pane label="macOS" name="macOS">
-              <version-list ref="macosListRef" platform="macOS" @upload="showUploadDialog" @refresh="handleVersionRefresh" />
-            </el-tab-pane>
-          </el-tabs>
+          <!-- 版本管理内容 -->
+          <div class="version-content" :class="{ 'blurred': !isAdmin }">
+            <div class="card-header">
+              <h3>应用版本管理</h3>
+              <el-button 
+                v-if="isAdmin"
+                type="primary" 
+                @click="showUploadDialog" 
+                data-testid="upload-version-button"
+                style="background-color: #FFD100; border-color: #FFD100; color: #333;"
+              >
+                <el-icon><Upload /></el-icon>
+                上传新版本
+              </el-button>
+            </div>
+            
+            <el-tabs v-model="versionTab" @tab-change="handleVersionTabChange">
+              <el-tab-pane label="Windows" name="Windows">
+                <version-list ref="windowsListRef" platform="Windows" @upload="showUploadDialog" @refresh="handleVersionRefresh" />
+              </el-tab-pane>
+              <el-tab-pane label="macOS" name="macOS">
+                <version-list ref="macosListRef" platform="macOS" @upload="showUploadDialog" @refresh="handleVersionRefresh" />
+              </el-tab-pane>
+            </el-tabs>
+          </div>
         </div>
       </el-tab-pane>
 
@@ -190,10 +208,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, RefreshLeft, Upload } from '@element-plus/icons-vue'
+import { Check, RefreshLeft, Upload, Lock } from '@element-plus/icons-vue'
 import request from '@/api/index.js'
 import { getProfile, updateProfile, changePassword } from '@/api/member'
 import { useUserStore } from '@/stores/user'
@@ -202,6 +220,12 @@ import VersionUploadDialog from '@/components/VersionUploadDialog.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+
+// 权限检查 - 只有admin-plus账号可以管理应用版本
+const isAdmin = computed(() => {
+  const username = userStore.userInfo?.username
+  return username === 'admin-plus'
+})
 
 const loading = ref(false)
 const saving = ref(false)
@@ -306,23 +330,29 @@ const getRoleType = (role) => {
   return typeMap[role] || 'info'
 }
 
-// 格式化日期
+// 格式化日期 - 将 UTC 时间转换为本地时间显示
 const formatDate = (dateString) => {
   if (!dateString) return ''
   
+  // 解析 UTC 时间并转换为本地时间
   const date = new Date(dateString)
   const now = new Date()
   const currentYear = now.getFullYear()
   const dateYear = date.getFullYear()
   
+  const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
   
+  // 如果是今年，显示 月-日 时:分
   if (dateYear === currentYear) {
-    return `${month}-${day}`
+    return `${month}-${day} ${hours}:${minutes}`
   }
   
-  return `${dateYear}-${month}-${day}`
+  // 否则显示 年-月-日 时:分
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
 const formatDateTime = (dateTime) => {
@@ -553,11 +583,95 @@ onMounted(() => {
 }
 
 .version-management-card {
+  position: relative;
   background-color: white;
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   margin-top: 20px;
+}
+
+.version-management-card.restricted {
+  overflow: hidden;
+}
+
+/* 模糊内容层 */
+.version-content.blurred {
+  filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 权限遮罩层 */
+.permission-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 12px;
+}
+
+/* 权限提示框 */
+.permission-notice {
+  text-align: center;
+  padding: 32px;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+}
+
+.notice-icon {
+  font-size: 48px;
+  color: #909399;
+  margin-bottom: 16px;
+}
+
+.notice-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 8px;
+}
+
+.notice-description {
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.6;
+}
+
+/* 浏览器兼容性回退 */
+@supports not (backdrop-filter: blur(2px)) {
+  .permission-overlay {
+    background-color: rgba(255, 255, 255, 0.85);
+  }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .permission-notice {
+    padding: 24px;
+    max-width: 90%;
+  }
+  
+  .notice-icon {
+    font-size: 36px;
+  }
+  
+  .notice-title {
+    font-size: 16px;
+  }
+  
+  .notice-description {
+    font-size: 13px;
+  }
 }
 
 .card-header {
