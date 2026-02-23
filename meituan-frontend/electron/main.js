@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, globalShortcut, dialog } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, globalShortcut } from 'electron'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { existsSync } from 'fs'
@@ -35,7 +35,21 @@ function createWindow() {
     const loadDevServer = async () => {
       try {
         await mainWindow.loadURL('http://localhost:5173')
-        // 开发环境不自动打开开发者工具，使用 Ctrl+Shift+D 手动打开
+        // 开发环境：设置右键菜单
+        mainWindow.webContents.on('context-menu', (e, params) => {
+          const contextMenu = Menu.buildFromTemplate([
+            {
+              label: '打开开发者工具',
+              click: () => {
+                mainWindow.webContents.openDevTools()
+              }
+            },
+            { type: 'separator' },
+            { label: '刷新', role: 'reload' },
+            { label: '强制刷新', role: 'forceReload' }
+          ])
+          contextMenu.popup()
+        })
       } catch (err) {
         console.log('等待 Vite 服务器启动...')
         setTimeout(loadDevServer, 1000)
@@ -89,27 +103,52 @@ function createWindow() {
     })
   }
 
-  // 注册全局快捷键 Ctrl+Shift+D 来切换开发者工具
-  globalShortcut.register('CommandOrControl+Shift+D', () => {
-    if (mainWindow) {
-      // 开发环境直接打开/关闭
-      if (process.env.NODE_ENV === 'development') {
-        if (mainWindow.webContents.isDevToolsOpened()) {
-          mainWindow.webContents.closeDevTools()
+  // 注册全局快捷键来切换开发者工具
+  // 尝试多个快捷键组合
+  const shortcuts = [
+    'CommandOrControl+Shift+D',
+    'CommandOrControl+Shift+I',
+    'F12'
+  ]
+  
+  let registeredShortcut = null
+  for (const shortcut of shortcuts) {
+    const ret = globalShortcut.register(shortcut, () => {
+      console.log('快捷键被触发:', shortcut, '当前环境:', process.env.NODE_ENV)
+      if (mainWindow) {
+        // 开发环境直接打开/关闭
+        if (process.env.NODE_ENV === 'development') {
+          console.log('开发环境：切换开发者工具')
+          if (mainWindow.webContents.isDevToolsOpened()) {
+            mainWindow.webContents.closeDevTools()
+          } else {
+            mainWindow.webContents.openDevTools()
+          }
         } else {
-          mainWindow.webContents.openDevTools()
-        }
-      } else {
-        // 生产环境需要密码验证
-        if (mainWindow.webContents.isDevToolsOpened()) {
-          mainWindow.webContents.closeDevTools()
-        } else {
-          // 请求渲染进程显示密码输入对话框
-          mainWindow.webContents.send('request-devtools-password')
+          console.log('生产环境：请求密码验证')
+          // 生产环境需要密码验证
+          if (mainWindow.webContents.isDevToolsOpened()) {
+            mainWindow.webContents.closeDevTools()
+          } else {
+            // 请求渲染进程显示密码输入对话框
+            mainWindow.webContents.send('request-devtools-password')
+          }
         }
       }
+    })
+    
+    if (ret) {
+      registeredShortcut = shortcut
+      console.log('快捷键注册成功:', shortcut)
+      break
+    } else {
+      console.log('快捷键注册失败:', shortcut)
     }
-  })
+  }
+  
+  if (!registeredShortcut) {
+    console.error('所有快捷键注册都失败了')
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null
@@ -136,6 +175,13 @@ ipcMain.on('window-maximize', () => {
 ipcMain.on('window-close', () => {
   if (mainWindow) {
     mainWindow.close()
+  }
+})
+
+// 手动打开开发者工具（开发环境）
+ipcMain.on('open-devtools', () => {
+  if (mainWindow && process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools()
   }
 })
 

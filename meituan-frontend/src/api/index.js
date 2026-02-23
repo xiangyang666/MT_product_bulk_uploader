@@ -39,7 +39,10 @@ request.interceptors.response.use(
     
     // 根据业务状态码处理
     if (res.code !== 200) {
-      ElMessage.error(res.message || '请求失败')
+      // 检查是否是静默模式
+      if (!response.config._silent) {
+        ElMessage.error(res.message || '请求失败')
+      }
       return Promise.reject(new Error(res.message || '请求失败'))
     }
     
@@ -174,7 +177,7 @@ export const uploadVersion = (file, data, onProgress) => {
     headers: {
       'Content-Type': 'multipart/form-data'
     },
-    timeout: 600000, // 10分钟超时,适合大文件上传
+    timeout: 1200000, // 20分钟超时,适合大文件上传和服务器处理
     onUploadProgress: (progressEvent) => {
       if (onProgress && progressEvent.total) {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
@@ -200,10 +203,20 @@ export const getVersionList = (platform, page = 1, size = 20) => {
 /**
  * 获取最新版本
  * @param {string} platform - 平台 (Windows/macOS)
+ * @param {boolean} silent - 是否静默模式（不显示错误提示）
  * @returns {Promise}
  */
-export const getLatestVersion = (platform) => {
-  return request.get(`/app-versions/latest/${platform}`)
+export const getLatestVersion = (platform, silent = false) => {
+  return request.get(`/app-versions/latest/${platform}`, {
+    // 添加自定义配置，用于在拦截器中判断
+    _silent: silent
+  }).catch(error => {
+    // 静默模式下，返回一个默认结构而不是抛出错误
+    if (silent) {
+      return { code: 404, message: '未找到版本', data: null }
+    }
+    throw error
+  })
 }
 
 /**
