@@ -24,6 +24,8 @@ public class PermissionService {
     
     /**
      * 检查用户是否可以查看目标成员
+     * admin-plus 可以查看所有成员
+     * 超级管理员可以查看所有成员
      * 
      * @param currentUser 当前用户
      * @param targetUser 目标用户
@@ -34,25 +36,24 @@ public class PermissionService {
             return false;
         }
         
-        String currentRole = currentUser.getRole();
-        String targetRole = targetUser.getRole();
-        
-        // 超级管理员可以查看所有人
-        if (ROLE_SUPER_ADMIN.equals(currentRole)) {
+        // admin-plus 可以查看所有成员
+        if (isAdminPlus(currentUser)) {
             return true;
         }
         
-        // 管理员只能查看普通用户
-        if (ROLE_ADMIN.equals(currentRole)) {
-            return ROLE_USER.equals(targetRole);
+        // 超级管理员可以查看所有成员
+        if (isSuperAdmin(currentUser)) {
+            return true;
         }
         
-        // 普通用户只能查看自己
+        // 其他用户只能查看自己
         return currentUser.getId().equals(targetUser.getId());
     }
     
     /**
      * 检查用户是否可以编辑目标成员
+     * admin-plus 可以编辑所有成员
+     * 超级管理员可以编辑除了 admin-plus 之外的所有成员
      * 
      * @param currentUser 当前用户
      * @param targetUser 目标用户
@@ -63,25 +64,24 @@ public class PermissionService {
             return false;
         }
         
-        String currentRole = currentUser.getRole();
-        String targetRole = targetUser.getRole();
-        
-        // 超级管理员可以编辑所有人（除了不能删除自己）
-        if (ROLE_SUPER_ADMIN.equals(currentRole)) {
+        // admin-plus 可以编辑所有成员
+        if (isAdminPlus(currentUser)) {
             return true;
         }
         
-        // 管理员只能编辑普通用户
-        if (ROLE_ADMIN.equals(currentRole)) {
-            return ROLE_USER.equals(targetRole);
+        // 超级管理员不能编辑 admin-plus
+        if (isSuperAdmin(currentUser) && !isAdminPlus(targetUser)) {
+            return true;
         }
         
-        // 普通用户只能编辑自己的部分信息
+        // 其他用户只能编辑自己的部分信息
         return currentUser.getId().equals(targetUser.getId());
     }
     
     /**
      * 检查用户是否可以删除目标成员
+     * admin-plus 可以删除所有成员（除了自己）
+     * 超级管理员可以删除除了 admin-plus 之外的所有成员
      * 
      * @param currentUser 当前用户
      * @param targetUser 目标用户
@@ -98,25 +98,23 @@ public class PermissionService {
             return false;
         }
         
-        String currentRole = currentUser.getRole();
-        String targetRole = targetUser.getRole();
-        
-        // 超级管理员可以删除其他所有人
-        if (ROLE_SUPER_ADMIN.equals(currentRole)) {
+        // admin-plus 可以删除所有成员
+        if (isAdminPlus(currentUser)) {
             return true;
         }
         
-        // 管理员只能删除普通用户
-        if (ROLE_ADMIN.equals(currentRole)) {
-            return ROLE_USER.equals(targetRole);
+        // 超级管理员不能删除 admin-plus
+        if (isSuperAdmin(currentUser) && !isAdminPlus(targetUser)) {
+            return true;
         }
         
-        // 普通用户不能删除任何人
         return false;
     }
     
     /**
      * 检查用户是否可以修改目标成员的角色
+     * admin-plus 可以修改所有成员的角色
+     * 超级管理员可以修改除了 admin-plus 之外的所有成员的角色
      * 
      * @param currentUser 当前用户
      * @param targetUser 目标用户
@@ -127,20 +125,23 @@ public class PermissionService {
             return false;
         }
         
-        String currentRole = currentUser.getRole();
-        
-        // 只有超级管理员可以修改角色
-        if (ROLE_SUPER_ADMIN.equals(currentRole)) {
+        // admin-plus 可以修改所有角色
+        if (isAdminPlus(currentUser)) {
             return true;
         }
         
-        // 管理员和普通用户都不能修改角色
+        // 超级管理员不能修改 admin-plus 的角色
+        if (isSuperAdmin(currentUser) && !isAdminPlus(targetUser)) {
+            return true;
+        }
+        
         log.warn("用户 {} 尝试修改角色，但权限不足", currentUser.getUsername());
         return false;
     }
     
     /**
      * 根据当前用户权限过滤可见的成员列表
+     * admin-plus 和超级管理员可以看到所有成员
      * 
      * @param members 成员列表
      * @param currentUser 当前用户
@@ -151,21 +152,17 @@ public class PermissionService {
             return List.of();
         }
         
-        String currentRole = currentUser.getRole();
-        
-        // 超级管理员可以看到所有人
-        if (ROLE_SUPER_ADMIN.equals(currentRole)) {
+        // admin-plus 可以看到所有成员
+        if (isAdminPlus(currentUser)) {
             return members;
         }
         
-        // 管理员只能看到普通用户
-        if (ROLE_ADMIN.equals(currentRole)) {
-            return members.stream()
-                .filter(user -> ROLE_USER.equals(user.getRole()))
-                .collect(Collectors.toList());
+        // 超级管理员可以看到所有成员
+        if (isSuperAdmin(currentUser)) {
+            return members;
         }
         
-        // 普通用户只能看到自己
+        // 其他用户只能看到自己
         return members.stream()
             .filter(user -> user.getId().equals(currentUser.getId()))
             .collect(Collectors.toList());
@@ -179,6 +176,17 @@ public class PermissionService {
      */
     public boolean isSuperAdmin(User user) {
         return user != null && ROLE_SUPER_ADMIN.equals(user.getRole());
+    }
+    
+    /**
+     * 检查用户是否为 admin-plus 账号（最高权限账号）
+     * 只有 admin-plus 账号才能管理成员
+     * 
+     * @param user 用户
+     * @return 是否为 admin-plus 账号
+     */
+    public boolean isAdminPlus(User user) {
+        return user != null && "admin-plus".equals(user.getUsername());
     }
     
     /**

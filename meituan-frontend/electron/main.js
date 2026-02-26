@@ -8,9 +8,6 @@ const __dirname = dirname(__filename)
 
 let mainWindow
 
-// 开发者工具密码（生产环境使用）
-const DEV_TOOLS_PASSWORD = 'admin-plus'
-
 function createWindow() {
   // 隐藏默认菜单栏
   Menu.setApplicationMenu(null)
@@ -35,20 +32,10 @@ function createWindow() {
     const loadDevServer = async () => {
       try {
         await mainWindow.loadURL('http://localhost:5173')
-        // 开发环境：设置右键菜单
+        // 开发环境：禁用右键菜单（已移除开发者工具选项）
         mainWindow.webContents.on('context-menu', (e, params) => {
-          const contextMenu = Menu.buildFromTemplate([
-            {
-              label: '打开开发者工具',
-              click: () => {
-                mainWindow.webContents.openDevTools()
-              }
-            },
-            { type: 'separator' },
-            { label: '刷新', role: 'reload' },
-            { label: '强制刷新', role: 'forceReload' }
-          ])
-          contextMenu.popup()
+          // 不显示任何右键菜单，让浏览器默认行为处理
+          // 如果需要自定义右键菜单，可以在这里添加
         })
       } catch (err) {
         console.log('等待 Vite 服务器启动...')
@@ -104,7 +91,7 @@ function createWindow() {
   }
 
   // 注册全局快捷键来切换开发者工具
-  // 尝试多个快捷键组合
+  // 所有环境都需要密码验证
   const shortcuts = [
     'CommandOrControl+Shift+D',
     'CommandOrControl+Shift+I',
@@ -114,25 +101,15 @@ function createWindow() {
   let registeredShortcut = null
   for (const shortcut of shortcuts) {
     const ret = globalShortcut.register(shortcut, () => {
-      console.log('快捷键被触发:', shortcut, '当前环境:', process.env.NODE_ENV)
+      console.log('快捷键被触发:', shortcut)
       if (mainWindow) {
-        // 开发环境直接打开/关闭
-        if (process.env.NODE_ENV === 'development') {
-          console.log('开发环境：切换开发者工具')
-          if (mainWindow.webContents.isDevToolsOpened()) {
-            mainWindow.webContents.closeDevTools()
-          } else {
-            mainWindow.webContents.openDevTools()
-          }
+        // 所有环境都需要密码验证
+        if (mainWindow.webContents.isDevToolsOpened()) {
+          mainWindow.webContents.closeDevTools()
         } else {
-          console.log('生产环境：请求密码验证')
-          // 生产环境需要密码验证
-          if (mainWindow.webContents.isDevToolsOpened()) {
-            mainWindow.webContents.closeDevTools()
-          } else {
-            // 请求渲染进程显示密码输入对话框
-            mainWindow.webContents.send('request-devtools-password')
-          }
+          console.log('请求密码验证')
+          // 请求渲染进程显示密码输入对话框
+          mainWindow.webContents.send('request-devtools-password')
         }
       }
     })
@@ -185,15 +162,19 @@ ipcMain.on('open-devtools', () => {
   }
 })
 
-// 验证开发者工具密码
+// 验证开发者工具密码（渲染进程验证后通知主进程）
 ipcMain.on('verify-devtools-password', (event, password) => {
+  // 渲染进程已经验证过密码，这里只是接收通知打开开发者工具
+  if (mainWindow && password === 'verified') {
+    mainWindow.webContents.openDevTools()
+    event.reply('devtools-password-result', { success: true })
+  }
+})
+
+// 渲染进程验证成功后，直接打开开发者工具
+ipcMain.on('open-devtools-verified', () => {
   if (mainWindow) {
-    if (password === DEV_TOOLS_PASSWORD) {
-      mainWindow.webContents.openDevTools()
-      event.reply('devtools-password-result', { success: true })
-    } else {
-      event.reply('devtools-password-result', { success: false, message: '密码错误' })
-    }
+    mainWindow.webContents.openDevTools()
   }
 })
 

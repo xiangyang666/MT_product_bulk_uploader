@@ -30,8 +30,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { initDevToolsProtection } from '@/utils/devToolsProtection'
 
 const showPasswordDialog = ref(false)
 const devToolsPassword = ref('')
@@ -39,35 +40,46 @@ const devToolsPassword = ref('')
 // 监听开发者工具密码请求
 onMounted(() => {
   if (window.electronAPI) {
-    // 监听主进程请求密码
+    // Electron 环境：监听主进程请求密码
     window.electronAPI.onRequestDevToolsPassword(() => {
       showPasswordDialog.value = true
       devToolsPassword.value = ''
     })
-    
-    // 监听密码验证结果
-    window.electronAPI.onDevToolsPasswordResult((result) => {
-      if (result.success) {
-        ElMessage.success('密码正确，开发者工具已打开')
-        showPasswordDialog.value = false
-        devToolsPassword.value = ''
-      } else {
-        ElMessage.error(result.message || '密码错误')
-        devToolsPassword.value = ''
-      }
-    })
+  } else {
+    // Web 环境：初始化开发者工具保护
+    initDevToolsProtection()
   }
 })
 
 // 验证密码
-const verifyPassword = () => {
+const verifyPassword = async () => {
   if (!devToolsPassword.value) {
     ElMessage.warning('请输入密码')
     return
   }
   
   if (window.electronAPI) {
-    window.electronAPI.verifyDevToolsPassword(devToolsPassword.value)
+    // Electron 环境：调用后端 API 验证密码
+    try {
+      const { verifyDevToolsPassword } = await import('@/api/devTools')
+      const res = await verifyDevToolsPassword({ password: devToolsPassword.value })
+      
+      if (res.data?.valid) {
+        ElMessage.success('密码正确，开发者工具已打开')
+        showPasswordDialog.value = false
+        devToolsPassword.value = ''
+        
+        // 通知 Electron 主进程打开开发者工具
+        window.electronAPI.openDevToolsVerified()
+      } else {
+        ElMessage.error('密码错误')
+        devToolsPassword.value = ''
+      }
+    } catch (error) {
+      console.error('验证密码失败:', error)
+      ElMessage.error('验证失败，请重试')
+      devToolsPassword.value = ''
+    }
   }
 }
 </script>

@@ -4,10 +4,21 @@
       <template #header>
         <div class="card-header">
           <span>成员管理</span>
-          <el-button type="primary" @click="handleCreate" v-if="canCreate">
-            <el-icon><Plus /></el-icon>
-            创建成员
-          </el-button>
+          <div class="header-actions">
+            <el-button 
+              v-if="isAdminPlus" 
+              type="warning" 
+              @click="handleDevToolsSettings"
+              style="margin-right: 10px;"
+            >
+              <el-icon><Tools /></el-icon>
+              开发者工具设置
+            </el-button>
+            <el-button type="primary" @click="handleCreate" v-if="canCreate">
+              <el-icon><Plus /></el-icon>
+              创建成员
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -73,43 +84,50 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="180" />
+        <el-table-column prop="createdAt" label="创建时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.createdAt) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" fixed="right" width="300">
           <template #default="{ row }">
-            <el-button
-              type="primary"
-              size="small"
-              @click="handleEdit(row)"
-              link
-            >
-              编辑
-            </el-button>
-            <el-button
-              type="warning"
-              size="small"
-              @click="handleChangePassword(row)"
-              link
-              v-if="canChangePassword"
-            >
-              改密码
-            </el-button>
-            <el-button
-              :type="row.status === 1 ? 'warning' : 'success'"
-              size="small"
-              @click="handleToggleStatus(row)"
-              link
-              v-if="canChangeStatus"
-            >
-              {{ row.status === 1 ? '禁用' : '启用' }}
-            </el-button>
-            <el-button
-              type="danger"
-              size="small"
-              @click="handleDelete(row)"
-              link
-            >
-              删除
-            </el-button>
+            <template v-if="canOperateUser(row.username)">
+              <el-button
+                type="primary"
+                size="small"
+                @click="handleEdit(row)"
+                link
+              >
+                编辑
+              </el-button>
+              <el-button
+                type="warning"
+                size="small"
+                @click="handleChangePassword(row)"
+                link
+                v-if="canChangePassword"
+              >
+                改密码
+              </el-button>
+              <el-button
+                :type="row.status === 1 ? 'warning' : 'success'"
+                size="small"
+                @click="handleToggleStatus(row)"
+                link
+                v-if="canChangeStatus"
+              >
+                {{ row.status === 1 ? '禁用' : '启用' }}
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                @click="handleDelete(row)"
+                link
+              >
+                删除
+              </el-button>
+            </template>
+            <span v-else style="color: #999;">无权限操作</span>
           </template>
         </el-table-column>
       </el-table>
@@ -156,8 +174,8 @@
         </el-form-item>
         <el-form-item label="角色" prop="role">
           <el-select v-model="formData.role" placeholder="请选择角色" style="width: 100%">
-            <el-option label="超级管理员" value="SUPER_ADMIN" v-if="canCreate" />
-            <el-option label="管理员" value="ADMIN" v-if="canCreate" />
+            <el-option label="超级管理员" value="SUPER_ADMIN" v-if="isSuperAdmin" />
+            <el-option label="管理员" value="ADMIN" v-if="isSuperAdmin" />
             <el-option label="普通用户" value="USER" />
           </el-select>
         </el-form-item>
@@ -215,13 +233,65 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 开发者工具设置对话框 -->
+    <el-dialog
+      v-model="devToolsDialogVisible"
+      title="开发者工具设置"
+      width="500px"
+    >
+      <el-alert
+        title="设置开发者工具访问密码"
+        type="info"
+        :closable="false"
+        style="margin-bottom: 20px;"
+      >
+        <template #default>
+          <p style="margin: 0;">此密码用于控制开发者工具的访问权限。</p>
+          <p style="margin: 5px 0 0 0;">设置后，用户需要输入正确的密码才能打开开发者工具。</p>
+        </template>
+      </el-alert>
+
+      <el-form
+        ref="devToolsFormRef"
+        :model="devToolsForm"
+        :rules="devToolsRules"
+        label-width="120px"
+      >
+        <el-form-item label="新密码" prop="password">
+          <el-input
+            v-model="devToolsForm.password"
+            type="password"
+            placeholder="请输入密码（至少6个字符）"
+            show-password
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirmPassword">
+          <el-input
+            v-model="devToolsForm.confirmPassword"
+            type="password"
+            placeholder="请再次输入密码"
+            show-password
+            clearable
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="devToolsDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleDevToolsSubmit" :loading="submitting">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Tools } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import {
   getMemberList,
@@ -231,17 +301,39 @@ import {
   changeMemberPassword,
   changeMemberStatus
 } from '@/api/member'
+import { 
+  setDevToolsPassword, 
+  getDevToolsPasswordStatus 
+} from '@/api/devTools'
+import { refreshPasswordStatus } from '@/utils/devToolsProtection'
 
 // 用户 store
 const userStore = useUserStore()
 
-// 当前用户角色（临时硬编码，实际应从store获取）
-const currentUserRole = ref('SUPER_ADMIN')
+// 当前用户信息
+const currentUsername = computed(() => userStore.userInfo?.username || '')
+const currentUserRole = computed(() => userStore.userInfo?.role || '')
 
 // 权限计算
-const canCreate = computed(() => currentUserRole.value === 'SUPER_ADMIN')
-const canChangePassword = computed(() => currentUserRole.value === 'SUPER_ADMIN')
-const canChangeStatus = computed(() => currentUserRole.value === 'SUPER_ADMIN')
+const isAdminPlus = computed(() => currentUsername.value === 'admin-plus')
+const isSuperAdmin = computed(() => currentUserRole.value === 'SUPER_ADMIN')
+const canCreate = computed(() => isSuperAdmin.value)
+const canChangePassword = computed(() => isSuperAdmin.value)
+const canChangeStatus = computed(() => isSuperAdmin.value)
+
+// 判断是否可以操作某个用户
+const canOperateUser = (username) => {
+  // admin-plus 可以操作所有人
+  if (isAdminPlus.value) {
+    return true
+  }
+  // 超级管理员可以操作除了 admin-plus 之外的所有人
+  if (isSuperAdmin.value && username !== 'admin-plus') {
+    return true
+  }
+  // 其他情况不能操作
+  return false
+}
 
 // 查询表单
 const queryForm = reactive({
@@ -322,6 +414,36 @@ const passwordRules = {
   ]
 }
 
+// 开发者工具设置对话框
+const devToolsDialogVisible = ref(false)
+const devToolsFormRef = ref(null)
+const devToolsForm = reactive({
+  password: '',
+  confirmPassword: ''
+})
+
+// 自定义验证器：开发者工具密码确认
+const validateDevToolsConfirmPassword = (rule, value, callback) => {
+  if (value === '') {
+    callback(new Error('请再次输入密码'))
+  } else if (value !== devToolsForm.password) {
+    callback(new Error('两次输入的密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+const devToolsRules = {
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 50, message: '密码长度必须在6-50个字符之间', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入密码', trigger: 'blur' },
+    { validator: validateDevToolsConfirmPassword, trigger: 'blur' }
+  ]
+}
+
 // 获取角色标签
 const getRoleLabel = (role) => {
   const roleMap = {
@@ -340,6 +462,23 @@ const getRoleType = (role) => {
     'USER': 'info'
   }
   return typeMap[role] || 'info'
+}
+
+// 格式化日期 - 将 UTC 时间转换为本地时间显示（始终显示年份）
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  
+  // 解析 UTC 时间并转换为本地时间
+  const date = new Date(dateString)
+  
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  
+  // 始终显示 年-月-日 时:分
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
 // 查询成员列表
@@ -527,6 +666,37 @@ const handleDelete = async (row) => {
   }
 }
 
+// 开发者工具设置
+const handleDevToolsSettings = () => {
+  devToolsForm.password = ''
+  devToolsForm.confirmPassword = ''
+  devToolsDialogVisible.value = true
+}
+
+// 提交开发者工具密码设置
+const handleDevToolsSubmit = async () => {
+  if (!devToolsFormRef.value) return
+  
+  await devToolsFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    
+    submitting.value = true
+    try {
+      await setDevToolsPassword({ password: devToolsForm.password })
+      ElMessage.success('开发者工具密码设置成功')
+      devToolsDialogVisible.value = false
+      
+      // 刷新密码状态，启用保护
+      await refreshPasswordStatus()
+    } catch (error) {
+      console.error('设置开发者工具密码失败:', error)
+      ElMessage.error(error.response?.data?.message || '设置失败，请重试')
+    } finally {
+      submitting.value = false
+    }
+  })
+}
+
 // 初始化
 onMounted(() => {
   loadMemberList()
@@ -553,6 +723,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .query-form {

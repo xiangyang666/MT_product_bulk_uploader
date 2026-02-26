@@ -219,21 +219,31 @@ public class MemberController {
     
     /**
      * 获取当前登录用户
-     * TODO: 实现真实的认证逻辑，从JWT或Session中获取
+     * 从Spring Security的认证上下文中获取
      * 
      * @return 当前用户
      */
     private User getCurrentUser() {
-        // 临时实现：返回默认超级管理员
-        // 在实际应用中，应该从Spring Security的认证上下文中获取
-        User user = memberService.getUserByUsername("admin");
-        if (user == null) {
-            // 如果admin用户不存在，创建一个临时的超级管理员对象
-            user = new User();
-            user.setId(1L);
-            user.setUsername("admin");
-            user.setRole("SUPER_ADMIN");
+        try {
+            // 从 Spring Security 上下文获取认证信息
+            org.springframework.security.core.Authentication authentication = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            
+            if (authentication != null && authentication.isAuthenticated()) {
+                String username = authentication.getName();
+                log.debug("从认证上下文获取用户: {}", username);
+                
+                User user = memberService.getUserByUsername(username);
+                if (user != null) {
+                    return user;
+                }
+            }
+            
+            // 如果无法从上下文获取，抛出异常
+            throw new IllegalStateException("未找到当前登录用户信息");
+        } catch (Exception e) {
+            log.error("获取当前用户失败", e);
+            throw new IllegalStateException("获取当前用户失败: " + e.getMessage());
         }
-        return user;
     }
 }

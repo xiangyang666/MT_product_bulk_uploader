@@ -68,7 +68,7 @@
             <span>操作日志</span>
           </el-menu-item>
           
-          <el-menu-item index="/members" class="menu-item" v-if="hasPermission(['SUPER_ADMIN'])">
+          <el-menu-item index="/members" class="menu-item" v-if="canAccessMembers">
             <el-icon><User /></el-icon>
             <span>成员管理</span>
           </el-menu-item>
@@ -183,14 +183,24 @@ const userStore = useUserStore()
 const currentTime = ref('')
 const isCollapsed = ref(false)
 
-// 获取当前用户角色
+// 获取当前用户角色和用户名
 const userRole = computed(() => userStore.userInfo?.role || 'USER')
+const username = computed(() => userStore.userInfo?.username || '')
+
+// 检查是否是 admin-plus 账号
+const isAdminPlus = computed(() => username.value === 'admin-plus')
+
+// 检查是否是超级管理员
+const isSuperAdmin = computed(() => userRole.value === 'SUPER_ADMIN')
 
 // 检查是否有权限访问某个菜单
 const hasPermission = (requiredRoles) => {
   if (!requiredRoles || requiredRoles.length === 0) return true
   return requiredRoles.includes(userRole.value)
 }
+
+// 检查是否可以访问成员管理（admin-plus 或 SUPER_ADMIN）
+const canAccessMembers = computed(() => isAdminPlus.value || isSuperAdmin.value)
 
 // 获取角色标签
 const getRoleLabel = (role) => {

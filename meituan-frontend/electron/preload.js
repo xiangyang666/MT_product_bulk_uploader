@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDevToolsPasswordResult: (callback) => {
     ipcRenderer.on('devtools-password-result', (event, result) => callback(result))
   },
+  openDevToolsVerified: () => ipcRenderer.send('open-devtools-verified'),
   
   // 系统信息
   platform: process.platform

@@ -50,14 +50,10 @@ public class MemberService {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         
         // 根据当前用户权限过滤
-        if (!permissionService.isSuperAdmin(currentUser)) {
-            if (permissionService.isAdmin(currentUser)) {
-                // 管理员只能看到普通用户
-                queryWrapper.eq(User::getRole, PermissionService.ROLE_USER);
-            } else {
-                // 普通用户只能看到自己
-                queryWrapper.eq(User::getId, currentUser.getId());
-            }
+        // admin-plus 和超级管理员可以看到所有成员
+        if (!permissionService.isAdminPlus(currentUser) && !permissionService.isSuperAdmin(currentUser)) {
+            // 其他用户只能看到自己
+            queryWrapper.eq(User::getId, currentUser.getId());
         }
         
         // 添加筛选条件
@@ -97,8 +93,8 @@ public class MemberService {
         log.info("创建成员: username={}, role={}, operator={}",
                 request.getUsername(), request.getRole(), currentUser.getUsername());
         
-        // 验证权限：只有超级管理员可以创建成员
-        if (!permissionService.isSuperAdmin(currentUser)) {
+        // 验证权限：admin-plus 和超级管理员可以创建成员
+        if (!permissionService.isAdminPlus(currentUser) && !permissionService.isSuperAdmin(currentUser)) {
             throw new IllegalStateException("权限不足，只有超级管理员可以创建成员");
         }
         
