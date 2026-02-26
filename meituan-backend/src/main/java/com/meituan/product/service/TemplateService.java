@@ -1,6 +1,7 @@
 package com.meituan.product.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.meituan.product.dto.TemplateStatusDTO;
 import com.meituan.product.entity.OperationLog;
 import com.meituan.product.entity.Template;
 import com.meituan.product.mapper.OperationLogMapper;
@@ -49,6 +50,64 @@ public class TemplateService {
                    .orderByDesc(Template::getCreatedTime);
         
         return templateMapper.selectList(queryWrapper);
+    }
+    
+    /**
+     * 获取模板状态
+     * 查询商家是否有可用的美团模板
+     * 
+     * @param merchantId 商家ID
+     * @return 模板状态DTO
+     */
+    public TemplateStatusDTO getTemplateStatus(Long merchantId) {
+        log.info("查询商家模板状态，商家ID：{}", merchantId);
+        
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            // 查询最新的美团模板
+            Template template = findLatestMeituanTemplate(merchantId);
+            
+            if (template == null) {
+                log.info("商家没有美团模板，商家ID：{}", merchantId);
+                return TemplateStatusDTO.builder()
+                        .hasTemplate(false)
+                        .build();
+            }
+            
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("查询模板状态成功，商家ID：{}，模板名称：{}，耗时：{}ms", 
+                    merchantId, template.getTemplateName(), duration);
+            
+            return TemplateStatusDTO.builder()
+                    .hasTemplate(true)
+                    .templateName(template.getTemplateName())
+                    .uploadTime(template.getCreatedTime())
+                    .fileSize(template.getFileSize())
+                    .templateType(template.getTemplateType())
+                    .build();
+                    
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("查询模板状态失败，商家ID：{}，耗时：{}ms", merchantId, duration, e);
+            throw new RuntimeException("查询模板状态失败：" + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 查找最新的美团模板
+     * 
+     * @param merchantId 商家ID
+     * @return 模板对象，如果不存在返回null
+     */
+    public Template findLatestMeituanTemplate(Long merchantId) {
+        LambdaQueryWrapper<Template> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Template::getMerchantId, merchantId)
+                   .eq(Template::getTemplateType, "MEITUAN")
+                   .orderByDesc(Template::getCreatedTime)
+                   .last("LIMIT 1");
+        
+        return templateMapper.selectOne(queryWrapper);
     }
     
     /**

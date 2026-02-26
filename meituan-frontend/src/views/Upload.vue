@@ -52,11 +52,22 @@
         </div>
 
         <div class="action-body">
+          <!-- Loading 骨架屏 -->
+          <div v-if="loading" class="skeleton-button">
+            <div class="skeleton-shimmer"></div>
+          </div>
+          
+          <!-- 生成按钮 -->
           <button
+            v-else
             class="generate-btn"
-            :class="{ 'is-loading': generating, 'is-disabled': stats.totalCount === 0 }"
-            :disabled="stats.totalCount === 0 || generating"
+            :class="{ 
+              'is-loading': generating, 
+              'is-disabled': isButtonDisabled 
+            }"
+            :disabled="isButtonDisabled"
             @click="handleGenerateTemplate"
+            :title="!templateStatus.hasTemplate ? '请先上传美团模板' : ''"
           >
             <span v-if="generating" class="btn-loading">
               <span class="loading-spinner"></span>
@@ -86,14 +97,20 @@
             </div>
           </div>
 
-          <div v-if="stats.totalCount === 0" class="tip-box empty">
+          <!-- 提示信息 -->
+          <div v-if="!loading" class="tip-box" 
+               :class="{ 
+                 'empty': stats.totalCount === 0,
+                 'warning': !templateStatus.hasTemplate,
+                 'success': templateStatus.hasTemplate && stats.totalCount > 0
+               }">
             <el-icon><InfoFilled /></el-icon>
-            <span>暂无商品数据，请先导入商品</span>
-          </div>
-          
-          <div v-else-if="!generating" class="tip-box success">
-            <el-icon><InfoFilled /></el-icon>
-            <span>将使用您在模板管理中上传的美团模板</span>
+            <span>{{ tipText }}</span>
+            <a v-if="!templateStatus.hasTemplate" 
+               @click="router.push('/template')" 
+               class="tip-link">
+              前往上传 →
+            </a>
           </div>
         </div>
 
@@ -204,19 +221,28 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Box, Clock, CircleCheck, CircleClose, Download, InfoFilled, Document } from '@element-plus/icons-vue'
-import { getProductStats, getRecentProducts, generateAllTemplate, getRecentOperations, getRecentGeneratedFiles, downloadGeneratedFile } from '@/api/index.js'
+import { getProductStats, getRecentProducts, generateAllTemplate, getRecentOperations, getRecentGeneratedFiles, downloadGeneratedFile, getTemplateStatus } from '@/api/index.js'
 
 const router = useRouter()
 const stats = ref({ totalCount: 0, pendingCount: 0, uploadedCount: 0, failedCount: 0 })
 const recentProducts = ref([])
 const recentLogs = ref([])
 const historyFiles = ref([])
-const loading = ref(false)
+const loading = ref(true)  // 页面加载状态
 const generating = ref(false)
+
+// 模板状态
+const templateStatus = ref({
+  hasTemplate: false,
+  templateName: '',
+  uploadTime: null,
+  fileSize: 0,
+  templateType: ''
+})
 
 // 进度条相关
 const progress = ref(0)
@@ -227,10 +253,27 @@ const progressColors = [
   { color: '#FF8C00', percentage: 100 }
 ]
 
-const getStatusType = (status) => {
-  const typeMap = { 0: 'info', 1: 'success', 2: 'danger' }
-  return typeMap[status] || 'info'
-}
+// 计算按钮是否禁用
+const isButtonDisabled = computed(() => {
+  return loading.value || 
+         !templateStatus.value.hasTemplate || 
+         stats.value.totalCount === 0 || 
+         generating.value
+})
+
+// 计算提示文本
+const tipText = computed(() => {
+  if (loading.value) {
+    return '正在加载...'
+  }
+  if (!templateStatus.value.hasTemplate) {
+    return '请先在模板管理中上传美团模板'
+  }
+  if (stats.value.totalCount === 0) {
+    return '暂无商品数据，请先导入商品'
+  }
+  return `将使用您在模板管理中上传的美团模板：${templateStatus.value.templateName}`
+})
 
 const getStatusText = (status) => {
   const textMap = { 0: '待上传', 1: '已上传', 2: '失败' }
@@ -286,6 +329,17 @@ const simulateProgress = () => {
   return interval
 }
 
+// 获取模板状态
+const fetchTemplateStatus = async () => {
+  try {
+    const response = await getTemplateStatus(1)
+    templateStatus.value = response.data || { hasTemplate: false }
+  } catch (error) {
+    console.error('获取模板状态失败:', error)
+    ElMessage.error('获取模板状态失败，请刷新页面重试')
+  }
+}
+
 const loadPageData = async () => {
   loading.value = true
   try {
@@ -293,7 +347,8 @@ const loadPageData = async () => {
       getProductStats(),
       getRecentProducts(1, 10),
       getRecentOperations(1, null, 3),
-      getRecentGeneratedFiles(1, 10)
+      getRecentGeneratedFiles(1, 10),
+      fetchTemplateStatus()  // 并行加载模板状态
     ])
     
     stats.value = statsRes.data || { totalCount: 0, pendingCount: 0, uploadedCount: 0, failedCount: 0 }
@@ -309,6 +364,23 @@ const loadPageData = async () => {
 }
 
 const handleGenerateTemplate = async () => {
+  // 检查是否有模板
+  if (!templateStatus.value.hasTemplate) {
+    ElMessageBox.confirm(
+      '您还没有上传美团模板，无法生成导出文件。是否前往模板管理上传？',
+      '提示',
+      {
+        confirmButtonText: '前往模板管理',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    ).then(() => {
+      router.push('/template')
+    }).catch(() => {})
+    return
+  }
+  
+  // 检查是否有商品
   if (stats.value.totalCount === 0) {
     ElMessage.warning('暂无商品数据，无法生成模板')
     return
@@ -346,10 +418,26 @@ const handleGenerateTemplate = async () => {
   } catch (error) {
     clearInterval(progressInterval)
     console.error('生成模板失败:', error)
-    if (error.response?.status === 500) {
+    
+    // 检查是否是模板相关错误
+    if (error.response?.data?.message === '请先上传美团模板') {
+      // 模板被删除了，刷新状态
+      await fetchTemplateStatus()
+      ElMessageBox.confirm(
+        '模板文件不存在或已被删除，请重新上传。是否前往模板管理？',
+        '错误',
+        {
+          confirmButtonText: '前往模板管理',
+          cancelButtonText: '取消',
+          type: 'error'
+        }
+      ).then(() => {
+        router.push('/template')
+      }).catch(() => {})
+    } else if (error.response?.status === 500) {
       ElMessage.error('服务器错误，请稍后重试')
     } else if (error.response?.status === 400) {
-      ElMessage.error('请求参数错误，请刷新页面重试')
+      ElMessage.error(error.response?.data?.message || '请求参数错误，请刷新页面重试')
     } else if (error.message?.includes('timeout')) {
       ElMessage.error('生成超时，商品数量过多，请联系管理员')
     } else {
@@ -609,6 +697,52 @@ onMounted(() => {
 .tip-box.success {
   background: rgba(34, 197, 94, 0.1);
   color: #16a34a;
+}
+
+.tip-box.warning {
+  background: #fff7e6;
+  border: 1px solid #ffa940;
+  color: #d46b08;
+}
+
+.tip-link {
+  margin-left: 8px;
+  color: #1890ff;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.tip-link:hover {
+  text-decoration: underline;
+}
+
+/* Loading 骨架屏 */
+.skeleton-button {
+  width: 100%;
+  max-width: 400px;
+  height: 52px;
+  background: #f0f0f0;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.5),
+    transparent
+  );
+  animation: shimmer-slide 1.5s infinite;
+}
+
+@keyframes shimmer-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 /* 炫酷进度条 */

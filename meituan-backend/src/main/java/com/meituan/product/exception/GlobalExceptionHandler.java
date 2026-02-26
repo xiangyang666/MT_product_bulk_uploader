@@ -27,6 +27,28 @@ public class GlobalExceptionHandler {
     }
     
     /**
+     * 处理模板未找到异常
+     */
+    @ExceptionHandler(TemplateNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTemplateNotFoundException(TemplateNotFoundException e) {
+        log.error("模板未找到异常: 商家ID={}, 错误={}", e.getMerchantId(), e.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(400, "请先上传美团模板"));
+    }
+    
+    /**
+     * 处理模板文件异常
+     */
+    @ExceptionHandler(TemplateFileException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTemplateFileException(TemplateFileException e) {
+        log.error("模板文件异常: {}", e.getMessage(), e);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(400, e.getMessage()));
+    }
+    
+    /**
      * 处理数据验证异常
      */
     @ExceptionHandler(DataValidationException.class)

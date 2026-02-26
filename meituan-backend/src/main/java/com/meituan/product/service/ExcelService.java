@@ -6,6 +6,8 @@ import com.meituan.product.entity.Product;
 import com.meituan.product.enums.FormatType;
 import com.meituan.product.exception.DataValidationException;
 import com.meituan.product.exception.FileFormatException;
+import com.meituan.product.exception.TemplateFileException;
+import com.meituan.product.exception.TemplateNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -711,41 +713,60 @@ public class ExcelService {
     public byte[] generateMeituanTemplateFromUserTemplate(List<Product> products, Long merchantId) {
         log.info("使用用户模板生成美团上传文件，商家ID：{}，商品数量：{}", merchantId, products.size());
         
+        // 1. 查找商家的美团模板
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.meituan.product.entity.Template> queryWrapper = 
+            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+        queryWrapper.eq(com.meituan.product.entity.Template::getMerchantId, merchantId)
+                   .eq(com.meituan.product.entity.Template::getTemplateType, "MEITUAN")
+                   .orderByDesc(com.meituan.product.entity.Template::getCreatedTime)
+                   .last("LIMIT 1");
+        
+        com.meituan.product.entity.Template template = templateMapper.selectOne(queryWrapper);
+        
+        // 2. 如果没有找到用户模板，抛出异常（移除默认模板回退）
+        if (template == null) {
+            log.error("未找到商家的美团模板，商家ID：{}", merchantId);
+            throw new TemplateNotFoundException(merchantId);
+        }
+        
+        log.info("找到用户模板：{}，模板ID：{}", template.getTemplateName(), template.getId());
+        
+        // 3. 从MinIO下载模板文件
+        String objectName = getObjectNameFromTemplate(template);
+        InputStream templateStream;
         try {
-            // 1. 查找商家的美团模板
-            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.meituan.product.entity.Template> queryWrapper = 
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
-            queryWrapper.eq(com.meituan.product.entity.Template::getMerchantId, merchantId)
-                       .eq(com.meituan.product.entity.Template::getTemplateType, "MEITUAN")
-                       .orderByDesc(com.meituan.product.entity.Template::getCreatedTime)
-                       .last("LIMIT 1");
-            
-            com.meituan.product.entity.Template template = templateMapper.selectOne(queryWrapper);
-            
-            // 2. 如果没有找到用户模板，使用默认模板
-            if (template == null) {
-                log.warn("未找到商家的美团模板，使用默认模板，商家ID：{}", merchantId);
-                return generateMeituanTemplate(products);
+            templateStream = minioService.downloadFile(objectName);
+        } catch (Exception e) {
+            log.error("模板文件下载失败，商家ID：{}，文件路径：{}，错误：{}", 
+                    merchantId, objectName, e.getMessage(), e);
+            throw new TemplateFileException("模板文件丢失，请重新上传");
+        }
+        
+        // 4. 读取模板文件
+        Workbook templateWorkbook;
+        try {
+            templateWorkbook = new XSSFWorkbook(templateStream);
+        } catch (Exception e) {
+            log.error("模板文件读取失败，商家ID：{}，文件大小：{}，错误：{}", 
+                    merchantId, template.getFileSize(), e.getMessage(), e);
+            try {
+                templateStream.close();
+            } catch (IOException ignored) {
             }
-            
-            log.info("找到用户模板：{}，模板ID：{}", template.getTemplateName(), template.getId());
-            
-            // 3. 从MinIO下载模板文件
-            String objectName = getObjectNameFromTemplate(template);
-            InputStream templateStream = minioService.downloadFile(objectName);
-            
-            // 4. 读取模板文件
-            Workbook templateWorkbook = new XSSFWorkbook(templateStream);
+            throw new TemplateFileException("模板文件损坏，请重新上传");
+        }
+        
+        try {
             Sheet templateSheet = templateWorkbook.getSheetAt(0);
             
             // 5. 美团模板前7行是说明和示例，第1行是表头，从第8行开始是数据
             // 获取表头行（第1行，索引0）
             Row headerRow = templateSheet.getRow(0);
             if (headerRow == null) {
-                log.warn("模板文件没有表头，使用默认模板");
+                log.error("模板文件没有表头，商家ID：{}", merchantId);
                 templateWorkbook.close();
                 templateStream.close();
-                return generateMeituanTemplate(products);
+                throw new TemplateFileException("模板文件格式错误：缺少表头");
             }
             
             // 6. 读取表头列名
@@ -796,10 +817,17 @@ public class ExcelService {
             log.info("成功使用用户模板生成文件，保留前7行模板说明，从第8行开始填充{}条商品数据", products.size());
             return outputStream.toByteArray();
             
+        } catch (TemplateFileException e) {
+            // 重新抛出模板文件异常
+            throw e;
         } catch (Exception e) {
-            log.error("使用用户模板生成文件失败，回退到默认模板", e);
-            // 如果出错，使用默认模板
-            return generateMeituanTemplate(products);
+            log.error("使用用户模板生成文件失败，商家ID：{}", merchantId, e);
+            try {
+                templateWorkbook.close();
+                templateStream.close();
+            } catch (Exception ignored) {
+            }
+            throw new TemplateFileException("模板文件处理失败：" + e.getMessage());
         }
     }
     

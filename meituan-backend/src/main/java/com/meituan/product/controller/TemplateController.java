@@ -1,6 +1,7 @@
 package com.meituan.product.controller;
 
 import com.meituan.product.common.ApiResponse;
+import com.meituan.product.dto.TemplateStatusDTO;
 import com.meituan.product.entity.Template;
 import com.meituan.product.service.TemplateService;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,27 @@ public class TemplateController {
         } catch (Exception e) {
             log.error("查询模板列表失败", e);
             return ApiResponse.error(500, "查询模板列表失败：" + e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取模板状态
+     * 查询商家是否有可用的美团模板
+     * 
+     * @param merchantId 商家ID
+     * @return 模板状态
+     */
+    @GetMapping("/status")
+    public ApiResponse<TemplateStatusDTO> getTemplateStatus(
+            @RequestParam(value = "merchantId", defaultValue = "1") Long merchantId) {
+        log.info("查询模板状态，商家ID：{}", merchantId);
+        
+        try {
+            TemplateStatusDTO status = templateService.getTemplateStatus(merchantId);
+            return ApiResponse.success(status);
+        } catch (Exception e) {
+            log.error("查询模板状态失败，商家ID：{}", merchantId, e);
+            return ApiResponse.error(500, "查询模板状态失败：" + e.getMessage());
         }
     }
     

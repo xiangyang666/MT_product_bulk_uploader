@@ -245,3 +245,26 @@ export const deleteVersion = (id) => {
 export const getDownloadUrl = (id) => {
   return request.get(`/app-versions/${id}/download`)
 }
+
+// ==================== 模板管理 API ====================
+
+/**
+ * 获取模板状态
+ * 查询商家是否有可用的美团模板
+ * @param {number} merchantId - 商家ID (可选，默认1)
+ * @returns {Promise<TemplateStatus>} 
+ * @example
+ * // 返回格式
+ * {
+ *   hasTemplate: true,
+ *   templateName: "美团模板_v1.3.7.xlsx",
+ *   uploadTime: "2026-02-25 14:30:00",
+ *   fileSize: 15360,
+ *   templateType: "MEITUAN"
+ * }
+ */
+export const getTemplateStatus = (merchantId = 1) => {
+  return request.get('/templates/status', {
+    params: { merchantId }
+  })
+}
