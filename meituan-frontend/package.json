@@ -1,7 +1,7 @@
 {
   "name": "meituan-product-upload",
   "version": "1.0.0",
-  "description": "美团商品批量上传管理工具",
+  "description": "美团商品批量上传管理工具-plus",
   "main": "electron/main.js",
   "type": "module",
   "scripts": {
