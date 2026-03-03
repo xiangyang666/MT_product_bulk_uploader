@@ -881,7 +881,24 @@ public class ExcelService {
         } else if (header.contains("库存") || header.equalsIgnoreCase("stock")) {
             setIntegerValue(cell, product.getStock());
         } else if (header.contains("售卖状态") || header.contains("销售状态")) {
-            setStringValue(cell, product.getSaleStatus());
+            // 售卖状态需要转换为 0 或 1
+            // 数据库中可能存储的是 "上架"/"下架" 或其他文本
+            if (product.getSaleStatus() != null) {
+                String status = product.getSaleStatus().trim();
+                // 如果已经是 0 或 1，直接使用
+                if ("0".equals(status) || "1".equals(status)) {
+                    cell.setCellValue(status);
+                } else if ("上架".equals(status) || "在售".equals(status) || "销售中".equals(status)) {
+                    cell.setCellValue("1");
+                } else if ("下架".equals(status) || "停售".equals(status) || "已下架".equals(status)) {
+                    cell.setCellValue("0");
+                } else {
+                    // 默认设置为 1（上架）
+                    cell.setCellValue("1");
+                }
+            } else {
+                cell.setCellValue("1"); // 默认上架
+            }
         } else if (header.contains("月售")) {
             setIntegerValue(cell, product.getMonthlySales());
         } else if (header.contains("重量") && !header.contains("单位")) {
@@ -907,9 +924,19 @@ public class ExcelService {
         } else if (header.contains("到期日期")) {
             setLocalDateValue(cell, product.getExpiryDate());
         } else if (header.contains("是否临期")) {
-            setIntegerBooleanValue(cell, product.getIsNearExpiry());
+            // 是否临期输出 0 或 1
+            if (product.getIsNearExpiry() != null) {
+                cell.setCellValue(product.getIsNearExpiry().toString());
+            } else {
+                cell.setCellValue("0");
+            }
         } else if (header.contains("是否过期")) {
-            setIntegerBooleanValue(cell, product.getIsExpired());
+            // 是否过期输出 0 或 1
+            if (product.getIsExpired() != null) {
+                cell.setCellValue(product.getIsExpired().toString());
+            } else {
+                cell.setCellValue("0");
+            }
         }
         // 配送时间
         else if (header.contains("发货模式")) {
@@ -917,25 +944,70 @@ public class ExcelService {
         } else if (header.contains("预售配送时间")) {
             setStringValue(cell, product.getPresaleDeliveryTime());
         } else if (header.contains("可售时间")) {
-            setStringValue(cell, product.getAvailableTime());
+            // 可售时间格式需要符合美团要求
+            // 通常格式为：HH:mm-HH:mm 或 全天
+            if (product.getAvailableTime() != null && !product.getAvailableTime().trim().isEmpty()) {
+                String time = product.getAvailableTime().trim();
+                // 验证格式是否正确
+                if (time.matches("\\d{1,2}:\\d{2}-\\d{1,2}:\\d{2}") || 
+                    "全天".equals(time) || 
+                    "00:00-23:59".equals(time)) {
+                    cell.setCellValue(time);
+                } else {
+                    // 格式不正确，设置为全天
+                    cell.setCellValue("00:00-23:59");
+                }
+            } else {
+                cell.setCellValue("00:00-23:59"); // 默认全天
+            }
         }
         // 商品属性
         else if (header.contains("力荐")) {
-            setIntegerBooleanValue(cell, product.getIsRecommended());
+            // 力荐字段输出 0 或 1
+            if (product.getIsRecommended() != null) {
+                cell.setCellValue(product.getIsRecommended().toString());
+            } else {
+                cell.setCellValue("0");
+            }
         } else if (header.contains("无理由退货")) {
-            setIntegerBooleanValue(cell, product.getNoReasonReturn());
+            // 无理由退货需要输出 0 或 1，不是"是/否"
+            if (product.getNoReasonReturn() != null) {
+                cell.setCellValue(product.getNoReasonReturn().toString());
+            } else {
+                cell.setCellValue("0"); // 默认不支持无理由退货
+            }
         } else if (header.contains("组合商品")) {
-            setIntegerBooleanValue(cell, product.getIsCombo());
+            // 组合商品输出 0 或 1
+            if (product.getIsCombo() != null) {
+                cell.setCellValue(product.getIsCombo().toString());
+            } else {
+                cell.setCellValue("0");
+            }
         } else if (header.contains("四轮配送")) {
-            setIntegerBooleanValue(cell, product.getIsFourWheelDelivery());
+            // 四轮配送输出 0 或 1
+            if (product.getIsFourWheelDelivery() != null) {
+                cell.setCellValue(product.getIsFourWheelDelivery().toString());
+            } else {
+                cell.setCellValue("0");
+            }
         }
         // 合规审核
         else if (header.contains("合规状态")) {
             setStringValue(cell, product.getComplianceStatus());
         } else if (header.contains("违规下架")) {
-            setIntegerBooleanValue(cell, product.getViolationOffline());
+            // 违规下架输出 0 或 1
+            if (product.getViolationOffline() != null) {
+                cell.setCellValue(product.getViolationOffline().toString());
+            } else {
+                cell.setCellValue("0");
+            }
         } else if (header.contains("必填信息缺失")) {
-            setIntegerBooleanValue(cell, product.getMissingRequiredInfo());
+            // 必填信息缺失输出 0 或 1
+            if (product.getMissingRequiredInfo() != null) {
+                cell.setCellValue(product.getMissingRequiredInfo().toString());
+            } else {
+                cell.setCellValue("0");
+            }
         } else if (header.contains("审核状态")) {
             setStringValue(cell, product.getAuditStatus());
         }
