@@ -31,6 +31,12 @@ const routes = [
         meta: { requiresRole: ['SUPER_ADMIN', 'ADMIN'] }
       },
       {
+        path: 'images',
+        name: 'Images',
+        component: () => import('@/views/Images.vue'),
+        meta: { requiresRole: ['SUPER_ADMIN', 'ADMIN'] }
+      },
+      {
         path: 'import',
         name: 'Import',
         component: () => import('@/views/Import.vue'),

@@ -49,12 +49,19 @@
       >
         批量删除 ({{ selectedIds.length }})
       </el-button>
-      <el-button 
-        type="danger" 
+      <el-button
+        type="danger"
         plain
         @click="handleClearAll"
       >
-        清除美团所有商品
+        清除本地数据
+      </el-button>
+      <el-button
+        type="danger"
+        plain
+        @click="handleDeleteFromMeituan"
+      >
+        一键删除到美团
       </el-button>
     </div>
 
@@ -548,6 +555,78 @@ const handleClearAll = async () => {
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
       const errorMsg = error.response?.data?.message || '清除失败，请检查访问令牌'
+      ElMessage.error(errorMsg)
+    }
+  }
+}
+
+// 一键删除到美团
+const handleDeleteFromMeituan = async () => {
+  try {
+    // 第一次确认
+    await ElMessageBox.confirm(
+      '此操作将逐个删除美团平台上的所有商品，耗时较长（预计30-60分钟），且不可恢复！',
+      '危险操作警告',
+      {
+        confirmButtonText: '我已了解，继续',
+        cancelButtonText: '取消',
+        type: 'error',
+        distinguishCancelAndClose: true
+      }
+    )
+
+    // 第二次确认 - 输入访问令牌
+    const { value: accessToken } = await ElMessageBox.prompt(
+      '请输入访问令牌以确认操作（默认令牌：admin123）',
+      '访问令牌验证',
+      {
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+        inputPlaceholder: '请输入访问令牌',
+        inputType: 'password',
+        inputValidator: (value) => {
+          if (!value || value.trim() === '') {
+            return '访问令牌不能为空'
+          }
+          return true
+        }
+      }
+    )
+
+    // 显示loading
+    const loading = ElLoading.service({
+      lock: true,
+      text: '正在逐个删除美团商品，请耐心等待...（此操作耗时较长）',
+      background: 'rgba(0, 0, 0, 0.7)'
+    })
+
+    try {
+      const response = await request.delete('/products/delete-meituan', {
+        data: {
+          merchantId: 1,
+          accessToken: accessToken
+        }
+      })
+
+      if (response.code === 200) {
+        const result = response.data
+        const message = `删除完成：共 ${result.deletedCount || 0} 个，成功 ${result.meituanDeletedCount || 0} 个，失败 ${result.meituanFailedCount || 0} 个`
+
+        if (result.meituanFailedCount > 0) {
+          ElMessage.warning(message + '，部分商品删除失败')
+        } else {
+          ElMessage.success(message)
+        }
+
+        // 刷新列表
+        fetchProducts()
+      }
+    } finally {
+      loading.close()
+    }
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      const errorMsg = error.response?.data?.message || '删除失败，请检查访问令牌'
       ElMessage.error(errorMsg)
     }
   }

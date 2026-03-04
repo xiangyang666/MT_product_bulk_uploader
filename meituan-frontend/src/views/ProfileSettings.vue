@@ -176,25 +176,29 @@ const getRoleType = (role) => {
   return typeMap[role] || 'info'
 }
 
-// 格式化日期：本年只显示月日，否则显示年月日
+// 格式化日期 - 将 UTC 时间转换为本地时间显示
 const formatDate = (dateString) => {
   if (!dateString) return ''
   
+  // 解析 UTC 时间并转换为本地时间
   const date = new Date(dateString)
   const now = new Date()
   const currentYear = now.getFullYear()
   const dateYear = date.getFullYear()
   
+  const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
   
-  // 如果是本年，只显示月日
+  // 如果是今年，显示 月-日 时:分
   if (dateYear === currentYear) {
-    return `${month}-${day}`
+    return `${month}-${day} ${hours}:${minutes}`
   }
   
-  // 否则显示年月日
-  return `${dateYear}-${month}-${day}`
+  // 否则显示 年-月-日 时:分
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
 // 加载个人信息

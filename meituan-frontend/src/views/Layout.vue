@@ -47,7 +47,12 @@
             <el-icon><Goods /></el-icon>
             <span>商品管理</span>
           </el-menu-item>
-          
+
+          <el-menu-item index="/images" class="menu-item" v-if="hasPermission(['SUPER_ADMIN', 'ADMIN'])">
+            <el-icon><Picture /></el-icon>
+            <span>批量上传图片</span>
+          </el-menu-item>
+
           <el-menu-item index="/import" class="menu-item" v-if="hasPermission(['SUPER_ADMIN', 'ADMIN'])">
             <el-icon><Upload /></el-icon>
             <span>批量导入</span>
@@ -164,6 +169,7 @@ import { useUserStore } from '@/stores/user'
 import {
   HomeFilled,
   Goods,
+  Picture,
   Upload,
   Promotion,
   Document,
@@ -216,6 +222,7 @@ const getRoleLabel = (role) => {
 const menuMap = {
   '/': '首页',
   '/products': '商品管理',
+  '/images': '批量上传图片',
   '/import': '批量导入',
   '/upload': '批量上传',
   '/template': '模板管理',
