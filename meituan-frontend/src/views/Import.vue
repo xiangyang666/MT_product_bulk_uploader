@@ -497,7 +497,8 @@ const handleImport = async () => {
     formData.append('merchantId', 1) // 默认商家ID
 
     const response = await request.post('/products/import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 1200000 // 20分钟超时，适合大批量导入
     })
 
     if (response.code === 200) {
