@@ -113,7 +113,8 @@ export const getRecentProducts = (merchantId = 1, limit = 10) => {
 export const generateAllTemplate = (merchantId = 1) => {
   return request.post('/products/generate-all-template', null, {
     params: { merchantId },
-    responseType: 'blob'
+    responseType: 'blob',
+    timeout: 1200000 // 20分钟超时，适合大批量商品生成
   })
 }
 
