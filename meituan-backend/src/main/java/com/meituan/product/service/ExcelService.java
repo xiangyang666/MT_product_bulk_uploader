@@ -688,6 +688,16 @@ public class ExcelService {
                     cell.setCellValue(product.getStock());
                 }
                 break;
+            case "weight":
+                if (product.getWeight() != null) {
+                    cell.setCellValue(product.getWeight().doubleValue());
+                }
+                break;
+            case "weightUnit":
+                if (product.getWeightUnit() != null) {
+                    cell.setCellValue(product.getWeightUnit());
+                }
+                break;
             case "description":
                 if (product.getDescription() != null) {
                     cell.setCellValue(product.getDescription());
@@ -849,7 +859,13 @@ public class ExcelService {
         if (header.contains("SKU") || header.contains("sku")) {
             setStringValue(cell, product.getSkuId());
         } else if (header.contains("条形码") || header.contains("UPC") || header.contains("EAN")) {
-            setStringValue(cell, product.getUpcEan());
+            // 美团要求：无条形码商品需填写"无条形码"
+            String upcEan = product.getUpcEan();
+            if (upcEan == null || upcEan.trim().isEmpty()) {
+                cell.setCellValue("无条形码");
+            } else {
+                cell.setCellValue(upcEan);
+            }
         } else if (header.contains("商品类目名称") || header.contains("类目名称")) {
             setStringValue(cell, product.getCategoryName());
         } else if (header.contains("商品类目ID") || header.contains("类目ID") || header.contains("类目") || header.contains("分类") || header.equalsIgnoreCase("category_id") || header.equalsIgnoreCase("categoryId")) {
@@ -881,30 +897,48 @@ public class ExcelService {
         } else if (header.contains("库存") || header.equalsIgnoreCase("stock")) {
             setIntegerValue(cell, product.getStock());
         } else if (header.contains("售卖状态") || header.contains("销售状态")) {
-            // 售卖状态需要转换为 0 或 1
-            // 数据库中可能存储的是 "上架"/"下架" 或其他文本
+            // 售卖状态必须严格为 0 或 1，否则美团平台无法识别
+            // 美团定义：立即上架=0，下架=1
+            String statusValue = "0"; // 默认为立即上架
             if (product.getSaleStatus() != null) {
                 String status = product.getSaleStatus().trim();
                 // 如果已经是 0 或 1，直接使用
-                if ("0".equals(status) || "1".equals(status)) {
-                    cell.setCellValue(status);
-                } else if ("上架".equals(status) || "在售".equals(status) || "销售中".equals(status)) {
-                    cell.setCellValue("1");
+                if ("0".equals(status)) {
+                    statusValue = "0";
+                } else if ("1".equals(status)) {
+                    statusValue = "1";
+                } else if ("上架".equals(status) || "在售".equals(status) || "销售中".equals(status) || "正常".equals(status)) {
+                    statusValue = "0"; // 上架状态 = 0
                 } else if ("下架".equals(status) || "停售".equals(status) || "已下架".equals(status)) {
-                    cell.setCellValue("0");
-                } else {
-                    // 默认设置为 1（上架）
-                    cell.setCellValue("1");
+                    statusValue = "1"; // 下架状态 = 1
                 }
-            } else {
-                cell.setCellValue("1"); // 默认上架
+                // 其他情况使用默认值 0（立即上架）
             }
+            cell.setCellValue(statusValue);
         } else if (header.contains("月售")) {
             setIntegerValue(cell, product.getMonthlySales());
-        } else if (header.contains("重量") && !header.contains("单位")) {
-            setBigDecimalValue(cell, product.getWeight());
-        } else if (header.contains("重量单位")) {
-            setStringValue(cell, product.getWeightUnit());
+        } else if ((header.contains("重量") || header.contains("毛重")) && !header.contains("单位")) {
+            // 毛重/重量：如果为空，设置默认值1000g（约1kg）
+            if (product.getWeight() != null) {
+                setBigDecimalValue(cell, product.getWeight());
+            } else {
+                cell.setCellValue("1000"); // 默认毛重1000g
+            }
+        } else if (header.contains("重量单位") || header.contains("毛重单位")) {
+            // 毛重单位/重量单位：如果为空，默认"g"
+            if (product.getWeightUnit() != null && !product.getWeightUnit().trim().isEmpty()) {
+                setStringValue(cell, product.getWeightUnit());
+            } else {
+                cell.setCellValue("g"); // 默认单位g
+            }
+        } else if (header.contains("品牌") && !header.contains("图片")) {
+            // 品牌 - 总是从productAttributes（商品属性）中提取"品牌：xxx"的值
+            // 不使用已存储的brand字段，因为可能被错误映射到"品牌商图片详情"列
+            String brand = extractBrandFromAttributes(product.getProductAttributes());
+            setStringValue(cell, brand);
+        } else if (header.contains("商品属性") || header.contains("类目属性")) {
+            // 商品属性/类目属性 - 导出完整的类目属性字符串
+            setStringValue(cell, product.getProductAttributes());
         } else if (header.contains("起购数")) {
             setIntegerValue(cell, product.getMinPurchase());
         } else if (header.contains("货架码") || header.contains("位置码")) {
@@ -924,19 +958,19 @@ public class ExcelService {
         } else if (header.contains("到期日期")) {
             setLocalDateValue(cell, product.getExpiryDate());
         } else if (header.contains("是否临期")) {
-            // 是否临期输出 0 或 1
-            if (product.getIsNearExpiry() != null) {
-                cell.setCellValue(product.getIsNearExpiry().toString());
-            } else {
-                cell.setCellValue("0");
+            // 美团要求：填写"临期"或"非临期"
+            String valueStr = "非临期"; // 默认非临期
+            if (product.getIsNearExpiry() != null && product.getIsNearExpiry() == 1) {
+                valueStr = "临期";
             }
+            cell.setCellValue(valueStr);
         } else if (header.contains("是否过期")) {
-            // 是否过期输出 0 或 1
-            if (product.getIsExpired() != null) {
-                cell.setCellValue(product.getIsExpired().toString());
-            } else {
-                cell.setCellValue("0");
+            // 是否过期必须严格为 0 或 1
+            String valueStr = "0";
+            if (product.getIsExpired() != null && product.getIsExpired() == 1) {
+                valueStr = "1";
             }
+            cell.setCellValue(valueStr);
         }
         // 配送时间
         else if (header.contains("发货模式")) {
@@ -944,70 +978,92 @@ public class ExcelService {
         } else if (header.contains("预售配送时间")) {
             setStringValue(cell, product.getPresaleDeliveryTime());
         } else if (header.contains("可售时间")) {
-            // 可售时间格式需要符合美团要求
-            // 通常格式为：HH:mm-HH:mm 或 全天
+            // 可售时间格式要求：
+            // 1. 指定时间点开售：HH:mm（如 09:00）
+            // 2. 指定时间段售卖：HH:mm-HH:mm（如 09:00-22:00）
+            // 3. 营业全时段可售：填写"营业全时段可售"
+            // 4. 周期性可售：时间段1，时间段2;周一，周二（用中文分号隔开）
+            // 5. 不填写则默认"营业全时段可售"
+            String timeValue = "营业全时段可售"; // 默认营业全时段可售
+            
             if (product.getAvailableTime() != null && !product.getAvailableTime().trim().isEmpty()) {
                 String time = product.getAvailableTime().trim();
-                // 验证格式是否正确
-                if (time.matches("\\d{1,2}:\\d{2}-\\d{1,2}:\\d{2}") || 
-                    "全天".equals(time) || 
-                    "00:00-23:59".equals(time)) {
-                    cell.setCellValue(time);
-                } else {
-                    // 格式不正确，设置为全天
-                    cell.setCellValue("00:00-23:59");
+                
+                // 如果是"全天"或"营业全时段可售"，使用标准格式
+                if ("全天".equals(time) || "营业全时段可售".equals(time)) {
+                    timeValue = "营业全时段可售";
                 }
-            } else {
-                cell.setCellValue("00:00-23:59"); // 默认全天
+                // 验证时间点格式：HH:mm
+                else if (time.matches("^(0?[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$")) {
+                    timeValue = time;
+                }
+                // 验证时间段格式：HH:mm-HH:mm
+                else if (time.matches("^(0?[0-9]|1[0-9]|2[0-3]):([0-5][0-9])-(0?[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$")) {
+                    timeValue = time;
+                }
+                // 验证周期性可售格式：包含中文分号
+                else if (time.contains("；") || time.contains(";")) {
+                    timeValue = time;
+                }
+                // 其他格式，使用默认值
             }
+            cell.setCellValue(timeValue);
         }
         // 商品属性
         else if (header.contains("力荐")) {
-            // 力荐字段输出 0 或 1
-            if (product.getIsRecommended() != null) {
-                cell.setCellValue(product.getIsRecommended().toString());
-            } else {
-                cell.setCellValue("0");
+            // 力荐必须严格为 0 或 1
+            String valueStr = "0";
+            if (product.getIsRecommended() != null && product.getIsRecommended() == 1) {
+                valueStr = "1";
             }
+            cell.setCellValue(valueStr);
         } else if (header.contains("无理由退货")) {
-            // 无理由退货需要输出 0 或 1，不是"是/否"
-            if (product.getNoReasonReturn() != null) {
-                cell.setCellValue(product.getNoReasonReturn().toString());
-            } else {
-                cell.setCellValue("0"); // 默认不支持无理由退货
+            // 无理由退货需要填写标签ID，不是 0/1
+            // 标签ID参考：
+            // 1300030895 - 不支持7天无理由退货
+            // 1300030901 - 7天无理由退货（默认）
+            // 1300030902 - 7天无理由退货(一次性包装破损不支持)
+            // 1300030903 - 7天无理由退货(激活后不支持)
+            // 1300030904 - 7天无理由退货(使用后不支持)
+            // 1300030905 - 7天无理由退货(安装后不支持)
+            // 1300030906 - 7天无理由退货(定制类不支持)
+            String returnTagId = "1300030895"; // 默认不支持无理由退货
+            if (product.getNoReasonReturn() != null && product.getNoReasonReturn() == 1) {
+                returnTagId = "1300030901"; // 支持7天无理由退货
             }
+            cell.setCellValue(returnTagId);
         } else if (header.contains("组合商品")) {
-            // 组合商品输出 0 或 1
-            if (product.getIsCombo() != null) {
-                cell.setCellValue(product.getIsCombo().toString());
-            } else {
-                cell.setCellValue("0");
+            // 组合商品必须严格为 0 或 1
+            String valueStr = "0";
+            if (product.getIsCombo() != null && product.getIsCombo() == 1) {
+                valueStr = "1";
             }
+            cell.setCellValue(valueStr);
         } else if (header.contains("四轮配送")) {
-            // 四轮配送输出 0 或 1
-            if (product.getIsFourWheelDelivery() != null) {
-                cell.setCellValue(product.getIsFourWheelDelivery().toString());
-            } else {
-                cell.setCellValue("0");
+            // 四轮配送必须严格为 0 或 1
+            String valueStr = "0";
+            if (product.getIsFourWheelDelivery() != null && product.getIsFourWheelDelivery() == 1) {
+                valueStr = "1";
             }
+            cell.setCellValue(valueStr);
         }
         // 合规审核
         else if (header.contains("合规状态")) {
             setStringValue(cell, product.getComplianceStatus());
         } else if (header.contains("违规下架")) {
-            // 违规下架输出 0 或 1
-            if (product.getViolationOffline() != null) {
-                cell.setCellValue(product.getViolationOffline().toString());
-            } else {
-                cell.setCellValue("0");
+            // 违规下架必须严格为 0 或 1
+            String valueStr = "0";
+            if (product.getViolationOffline() != null && product.getViolationOffline() == 1) {
+                valueStr = "1";
             }
+            cell.setCellValue(valueStr);
         } else if (header.contains("必填信息缺失")) {
-            // 必填信息缺失输出 0 或 1
-            if (product.getMissingRequiredInfo() != null) {
-                cell.setCellValue(product.getMissingRequiredInfo().toString());
-            } else {
-                cell.setCellValue("0");
+            // 必填信息缺失必须严格为 0 或 1
+            String valueStr = "0";
+            if (product.getMissingRequiredInfo() != null && product.getMissingRequiredInfo() == 1) {
+                valueStr = "1";
             }
+            cell.setCellValue(valueStr);
         } else if (header.contains("审核状态")) {
             setStringValue(cell, product.getAuditStatus());
         }
@@ -1054,7 +1110,34 @@ public class ExcelService {
             cell.setCellValue("");
         }
     }
-    
+
+    /**
+     * 从类目属性中提取第一个品牌
+     * 格式如："品牌：小宁电器。类型：茶杯消毒柜。能效等级：一级能效。容量：10L。层数：3层及以上。安装方式：柜式。"
+     * 返回第一个品牌，如："小宁电器"
+     */
+    private String extractBrandFromAttributes(String productAttributes) {
+        if (productAttributes == null || productAttributes.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            // 使用正则表达式匹配第一个"品牌："或"品牌:"后面的内容（直到句号）
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("品牌[：:]([^。]+)");
+            java.util.regex.Matcher matcher = pattern.matcher(productAttributes);
+
+            // 只取第一个匹配
+            if (matcher.find()) {
+                return matcher.group(1).trim();
+            }
+
+        } catch (Exception e) {
+            log.debug("从类目属性提取品牌失败: {}", e.getMessage());
+        }
+
+        return null;
+    }
+
     /**
      * 设置布尔值
      */
