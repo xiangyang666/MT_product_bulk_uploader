@@ -400,14 +400,14 @@ const handleGenerateTemplate = async () => {
     const link = document.createElement('a')
     link.href = url
     const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').split('.')[0]
-    const filename = `meituan_all_products_${timestamp}.xlsx`
+    const filename = `meituan_all_products_${timestamp}.zip`  // 改为ZIP文件
     link.download = filename
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
     
-    ElMessage.success(`成功生成包含 ${stats.value.totalCount} 个商品的模板：${filename}`)
+    ElMessage.success(`成功生成包含 ${stats.value.totalCount} 个商品的模板压缩包：${filename}`)
     
     // 延迟关闭进度条，让用户看到100%
     setTimeout(() => {

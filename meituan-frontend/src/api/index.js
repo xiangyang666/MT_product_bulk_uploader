@@ -106,13 +106,14 @@ export const getRecentProducts = (merchantId = 1, limit = 10) => {
 }
 
 /**
- * 生成全部商品模板
+ * 导出所有商品为ZIP（自动拆分）
  * @param {number} merchantId - 商家ID (可选，默认1)
+ * @param {number} limit - 导出数量限制 (可选，0=全部，正数=测试模式)
  * @returns {Promise<Blob>}
  */
-export const generateAllTemplate = (merchantId = 1) => {
-  return request.post('/products/generate-all-template', null, {
-    params: { merchantId },
+export const generateAllTemplate = (merchantId = 1, limit = 0) => {
+  return request.post('/products/export-as-zip', null, {
+    params: { merchantId, limit },
     responseType: 'blob',
     timeout: 1200000 // 20分钟超时，适合大批量商品生成
   })
