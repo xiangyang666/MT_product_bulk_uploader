@@ -1,7 +1,10 @@
 package com.meituan.product.service;
 
+import com.meituan.product.dto.MappingResult;
 import com.meituan.product.enums.FormatType;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -11,10 +14,17 @@ import java.util.Map;
 /**
  * Excel文件格式检测器
  * 用于识别文件是美团格式还是标准格式
+ * 支持自适应映射和固定映射两种模式
  */
 @Slf4j
 @Component
 public class FormatDetector {
+    
+    @Autowired(required = false)
+    private AdaptiveMappingEngine adaptiveMappingEngine;
+    
+    @Value("${meituan.adaptive-mapping.enabled:true}")
+    private boolean adaptiveMappingEnabled;
     
     // 美团格式的必需列
     private static final String[] MEITUAN_REQUIRED_COLUMNS = {
@@ -90,6 +100,7 @@ public class FormatDetector {
         
         MEITUAN_COLUMN_MAPPING.put("重量", "weight");
         MEITUAN_COLUMN_MAPPING.put("重量单位", "weightUnit");
+        MEITUAN_COLUMN_MAPPING.put("品牌", "brand");
         MEITUAN_COLUMN_MAPPING.put("起购数", "minPurchase");
         MEITUAN_COLUMN_MAPPING.put("货架码/位置码", "shelfCode");
         MEITUAN_COLUMN_MAPPING.put("货架码", "shelfCode");
@@ -129,8 +140,11 @@ public class FormatDetector {
         // 商品属性字段
         // ============================================
         MEITUAN_COLUMN_MAPPING.put("商品属性", "productAttributes");
+        MEITUAN_COLUMN_MAPPING.put("类目属性", "productAttributes");  // 统一映射到productAttributes
+        MEITUAN_COLUMN_MAPPING.put("属性", "productAttributes");
+        MEITUAN_COLUMN_MAPPING.put("商品类目属性", "productAttributes");
         MEITUAN_COLUMN_MAPPING.put("力荐", "isRecommended");
-        MEITUAN_COLUMN_MAPPING.put("无理由退货", "noReasonReturn");
+        MEITUAN_COLUMN_MAPPING.put("无理由退货", "noReasonReturnTagId");
         MEITUAN_COLUMN_MAPPING.put("组合商品", "isCombo");
         MEITUAN_COLUMN_MAPPING.put("参与的组合商品", "comboProducts");
         MEITUAN_COLUMN_MAPPING.put("是否四轮配送", "isFourWheelDelivery");
@@ -252,11 +266,49 @@ public class FormatDetector {
     
     /**
      * 获取美团格式的列索引映射
+     * 支持自适应映射和固定映射两种模式
      * 
      * @param headers Excel文件的表头行
      * @return 列名到索引的映射（系统字段名 -> 列索引）
      */
     public Map<String, Integer> getMeituanColumnMapping(List<String> headers) {
+        // 如果启用了自适应映射且引擎可用，使用自适应映射
+        if (adaptiveMappingEnabled && adaptiveMappingEngine != null) {
+            try {
+                log.info("使用自适应映射引擎构建列映射");
+                MappingResult mappingResult = adaptiveMappingEngine.buildMapping(headers, FormatType.MEITUAN);
+                
+                // 记录映射结果
+                log.info("自适应映射完成: 成功={}, 警告={}, 错误={}", 
+                    mappingResult.getMappings().size(),
+                    mappingResult.getWarnings().size(),
+                    mappingResult.getErrors().size());
+                
+                // 如果映射有效，返回映射结果
+                if (mappingResult.isValid()) {
+                    return mappingResult.getColumnIndexMap();
+                } else {
+                    log.warn("自适应映射无效，回退到固定映射");
+                }
+            } catch (Exception e) {
+                log.error("自适应映射失败: {}, 回退到固定映射", e.getMessage());
+            }
+        } else {
+            log.info("使用固定映射（自适应映射已禁用或不可用）");
+        }
+        
+        // 回退到固定映射
+        return getFixedColumnMapping(headers);
+    }
+    
+    /**
+     * 获取美团格式的列索引映射（固定映射模式）
+     * 保持向后兼容的原有逻辑
+     * 
+     * @param headers Excel文件的表头行
+     * @return 列名到索引的映射（系统字段名 -> 列索引）
+     */
+    private Map<String, Integer> getFixedColumnMapping(List<String> headers) {
         Map<String, Integer> columnIndexMap = new HashMap<>();
         
         // 遍历表头，找到美团列名对应的索引
@@ -279,8 +331,36 @@ public class FormatDetector {
             }
         }
         
-        log.info("美团格式列映射完成，共映射{}个字段", columnIndexMap.size());
+        log.info("固定映射完成，共映射{}个字段", columnIndexMap.size());
         return columnIndexMap;
+    }
+    
+    /**
+     * 获取美团格式的列索引映射（返回MappingResult）
+     * 新增方法，用于获取完整的映射结果（包含警告和错误）
+     * 
+     * @param headers Excel文件的表头行
+     * @return 映射结果
+     */
+    public MappingResult getMeituanColumnMappingWithDetails(List<String> headers) {
+        if (adaptiveMappingEnabled && adaptiveMappingEngine != null) {
+            try {
+                log.info("使用自适应映射引擎构建列映射（带详情）");
+                return adaptiveMappingEngine.buildMapping(headers, FormatType.MEITUAN);
+            } catch (Exception e) {
+                log.error("自适应映射失败: {}", e.getMessage());
+            }
+        }
+        
+        // 如果自适应映射不可用，创建一个基于固定映射的MappingResult
+        MappingResult result = new MappingResult(FormatType.MEITUAN);
+        Map<String, Integer> fixedMapping = getFixedColumnMapping(headers);
+        
+        // 将固定映射转换为MappingResult格式
+        // 注意：固定映射不包含置信度等信息，这里简化处理
+        result.setValid(!fixedMapping.isEmpty());
+        
+        return result;
     }
     
     /**

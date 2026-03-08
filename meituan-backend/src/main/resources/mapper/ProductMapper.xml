@@ -11,11 +11,11 @@
             sku_id, upc_ean, category_name, app_spu_code,
             product_image, cover_video, spec_image, spec_image_url,
             store_category, store_category_count, spec_name, store_code,
-            sale_status, monthly_sales, weight, weight_unit, min_purchase, shelf_code,
+            sale_status, monthly_sales, weight, weight_unit, brand, min_purchase, shelf_code,
             selling_point, selling_point_period, text_detail, image_detail, brand_image_detail,
             production_date, expiry_date, is_near_expiry, is_expired,
             delivery_mode, presale_delivery_time, available_time,
-            product_attributes, is_recommended, no_reason_return, is_combo, combo_products, is_four_wheel_delivery,
+            product_attributes, is_recommended, no_reason_return, no_reason_return_tag_id, is_combo, combo_products, is_four_wheel_delivery,
             compliance_status, violation_offline, missing_required_info, audit_status
         ) VALUES
         <foreach collection="list" item="item" separator=",">
@@ -25,11 +25,11 @@
                 #{item.skuId}, #{item.upcEan}, #{item.categoryName}, #{item.appSpuCode},
                 #{item.productImage}, #{item.coverVideo}, #{item.specImage}, #{item.specImageUrl},
                 #{item.storeCategory}, #{item.storeCategoryCount}, #{item.specName}, #{item.storeCode},
-                #{item.saleStatus}, #{item.monthlySales}, #{item.weight}, #{item.weightUnit}, #{item.minPurchase}, #{item.shelfCode},
+                #{item.saleStatus}, #{item.monthlySales}, #{item.weight}, #{item.weightUnit}, #{item.brand}, #{item.minPurchase}, #{item.shelfCode},
                 #{item.sellingPoint}, #{item.sellingPointPeriod}, #{item.textDetail}, #{item.imageDetail}, #{item.brandImageDetail},
                 #{item.productionDate}, #{item.expiryDate}, #{item.isNearExpiry}, #{item.isExpired},
                 #{item.deliveryMode}, #{item.presaleDeliveryTime}, #{item.availableTime},
-                #{item.productAttributes}, #{item.isRecommended}, #{item.noReasonReturn}, #{item.isCombo}, #{item.comboProducts}, #{item.isFourWheelDelivery},
+                #{item.productAttributes}, #{item.isRecommended}, #{item.noReasonReturn}, #{item.noReasonReturnTagId}, #{item.isCombo}, #{item.comboProducts}, #{item.isFourWheelDelivery},
                 #{item.complianceStatus}, #{item.violationOffline}, #{item.missingRequiredInfo}, #{item.auditStatus}
             )
         </foreach>
@@ -47,5 +47,24 @@
         DELETE FROM t_product
         WHERE merchant_id = #{merchantId}
     </delete>
-    
+
+    <!-- 根据商家ID分页查询商品列表（支持搜索和日期筛选） -->
+    <select id="selectByMerchantIdPage" resultType="com.meituan.product.entity.Product">
+        SELECT * FROM t_product
+        WHERE merchant_id = #{merchantId} AND deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND (product_name LIKE CONCAT('%', #{keyword}, '%')
+                 OR category_id LIKE CONCAT('%', #{keyword}, '%')
+                 OR store_code LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND DATE(created_time) &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND DATE(created_time) &lt;= #{endDate}
+        </if>
+        ORDER BY created_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
 </mapper>

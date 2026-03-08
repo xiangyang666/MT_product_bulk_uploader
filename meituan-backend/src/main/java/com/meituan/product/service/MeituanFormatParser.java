@@ -73,6 +73,7 @@ public class MeituanFormatParser {
             product.setMonthlySales(parseInteger(extractField(row, "monthlySales", columnMapping)));
             product.setWeight(parseDecimal(extractField(row, "weight", columnMapping)));
             product.setWeightUnit(extractField(row, "weightUnit", columnMapping));
+            product.setBrand(extractField(row, "brand", columnMapping));
             product.setMinPurchase(parseInteger(extractField(row, "minPurchase", columnMapping)));
             product.setShelfCode(extractField(row, "shelfCode", columnMapping));
             
@@ -100,13 +101,50 @@ public class MeituanFormatParser {
             product.setDeliveryMode(extractField(row, "deliveryMode", columnMapping));
             product.setPresaleDeliveryTime(extractField(row, "presaleDeliveryTime", columnMapping));
             product.setAvailableTime(extractField(row, "availableTime", columnMapping));
+
+            // ============================================
+            // 商品属性字段 - 完全依赖列映射
+            // ============================================
+            // 优先从列映射读取
+            String productAttrs = extractField(row, "productAttributes", columnMapping);
+            // 如果映射失败，尝试从常见索引读取（作为最后的备选）
+            if (productAttrs == null || productAttrs.trim().isEmpty()) {
+                productAttrs = extractFieldByIndex(row, 50);
+            }
+            product.setProductAttributes(productAttrs);
+            log.info("第{}行：类目属性 = {}", rowNum, productAttrs);
             
-            // ============================================
-            // 商品属性字段
-            // ============================================
-            product.setProductAttributes(extractField(row, "productAttributes", columnMapping));
+            // 添加诊断日志
+            if (productAttrs == null || productAttrs.trim().isEmpty()) {
+                log.warn("第{}行：类目属性为空！类目名称：{}，类目ID：{}", 
+                    rowNum, product.getCategoryName(), product.getCategoryId());
+            } else if (productAttrs.length() < 50) {
+                log.warn("第{}行：类目属性过短（{}字符），可能不完整：{}", 
+                    rowNum, productAttrs.length(), productAttrs);
+            }
+
+            // 从productAttributes中提取品牌（优先）
+            String extractedBrand = extractBrandFromAttributes(productAttrs);
+            if (extractedBrand != null && !extractedBrand.isEmpty()) {
+                product.setBrand(extractedBrand);
+            } else {
+                // 如果没有从productAttributes中提取到品牌，检查brand列
+                String brandColumn = extractField(row, "brand", columnMapping);
+                if (brandColumn != null && !brandColumn.trim().isEmpty() && !"无".equals(brandColumn)) {
+                    product.setBrand(brandColumn);
+                }
+            }
+            log.info("第{}行：提取的品牌 = {}", rowNum, product.getBrand());
+
             product.setIsRecommended(parseBoolean(extractField(row, "isRecommended", columnMapping)));
-            product.setNoReasonReturn(parseBoolean(extractField(row, "noReasonReturn", columnMapping)));
+            
+            // 解析无理由退货标签ID
+            String noReasonReturnValue = extractField(row, "noReasonReturnTagId", columnMapping);
+            String tagId = parseNoReasonReturnTagId(noReasonReturnValue);
+            product.setNoReasonReturnTagId(tagId);
+            // 同时设置旧的布尔字段（向后兼容）
+            product.setNoReasonReturn("1300030901".equals(tagId) ? 1 : 0);
+            
             product.setIsCombo(parseBoolean(extractField(row, "isCombo", columnMapping)));
             product.setComboProducts(extractField(row, "comboProducts", columnMapping));
             product.setIsFourWheelDelivery(parseBoolean(extractField(row, "isFourWheelDelivery", columnMapping)));
@@ -154,8 +192,19 @@ public class MeituanFormatParser {
     }
     
     /**
+     * 从指定列索引提取值（不依赖映射）
+     */
+    private String extractFieldByIndex(Row row, int columnIndex) {
+        if (columnIndex < 0) {
+            return null;
+        }
+        Cell cell = row.getCell(columnIndex);
+        return getCellValueAsString(cell);
+    }
+
+    /**
      * 获取单元格的字符串值
-     * 
+     *
      * @param cell 单元格
      * @return 字符串值
      */
@@ -163,7 +212,7 @@ public class MeituanFormatParser {
         if (cell == null) {
             return null;
         }
-        
+
         switch (cell.getCellType()) {
             case STRING:
                 return cell.getStringCellValue();
@@ -337,5 +386,127 @@ public class MeituanFormatParser {
             log.warn("无法解析日期：{}", str);
             return null;
         }
+    }
+
+    /**
+     * 从类目属性中提取第一个品牌
+     * 格式如："品牌：小宁电器。类型：茶杯消毒柜。能效等级：一级能效..."
+     * 返回第一个品牌，如："小宁电器"
+     */
+    private String extractBrandFromAttributes(String productAttributes) {
+        if (productAttributes == null || productAttributes.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            // 使用正则表达式匹配第一个"品牌："或"品牌:"后面的内容（直到句号）
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("品牌[：:]([^。]+)");
+            java.util.regex.Matcher matcher = pattern.matcher(productAttributes);
+
+            // 只取第一个匹配
+            if (matcher.find()) {
+                return matcher.group(1).trim();
+            }
+
+        } catch (Exception e) {
+            log.debug("从类目属性提取品牌失败: {}", e.getMessage());
+        }
+
+        return null;
+    }
+    
+    /**
+     * 解析无理由退货标签ID
+     * 支持以下格式：
+     * 1. 标签ID（如：1300030895）
+     * 2. 标签名称（如：不支持7天无理由退货）
+     * 3. 布尔值（0/1）
+     *
+     * 标签ID映射表：
+     * 1300030895 - 不支持7天无理由退货
+     * 1300030902 - 7天无理由退货（一次性包装破损不支持）
+     * 1300030903 - 7天无理由退货（激活后不支持）
+     * 1300030904 - 7天无理由退货（使用后不支持）
+     * 1300030905 - 7天无理由退货（安装后不支持）
+     * 1300030906 - 7天无理由退货（定制类不支持）
+     * 1300030901 - 7天无理由退货
+     *
+     * @param value 输入值
+     * @return 标签ID
+     */
+    private String parseNoReasonReturnTagId(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            log.debug("无理由退货字段为空，使用默认值: 1300030895");
+            return "1300030895"; // 默认：不支持7天无理由退货
+        }
+
+        String trimmedValue = value.trim();
+
+        // 如果已经是标签ID格式（13开头的10位数字），直接返回
+        if (trimmedValue.matches("^13\\d{8}$")) {
+            log.debug("无理由退货字段已是标签ID格式: {}", trimmedValue);
+            return trimmedValue;
+        }
+
+        log.debug("开始匹配无理由退货标签，输入值: [{}], 长度: {}", trimmedValue, trimmedValue.length());
+
+        // 优先匹配更具体的标签（必须先匹配，否则会被通用标签覆盖）
+
+        // 1300030902 - 7天无理由退货（一次性包装破损不支持）
+        if (trimmedValue.contains("一次性包装破损") && trimmedValue.contains("不支持")) {
+            log.info("匹配到: 7天无理由退货（一次性包装破损不支持）-> 1300030902");
+            return "1300030902";
+        }
+
+        // 1300030903 - 7天无理由退货（激活后不支持）
+        if (trimmedValue.contains("激活后") && trimmedValue.contains("不支持")) {
+            log.info("匹配到: 7天无理由退货（激活后不支持）-> 1300030903");
+            return "1300030903";
+        }
+
+        // 1300030904 - 7天无理由退货（使用后不支持）
+        if (trimmedValue.contains("使用后") && trimmedValue.contains("不支持")) {
+            log.info("匹配到: 7天无理由退货（使用后不支持）-> 1300030904");
+            return "1300030904";
+        }
+
+        // 1300030905 - 7天无理由退货（安装后不支持）
+        if (trimmedValue.contains("安装后") && trimmedValue.contains("不支持")) {
+            log.info("匹配到: 7天无理由退货（安装后不支持）-> 1300030905");
+            return "1300030905";
+        }
+
+        // 1300030906 - 7天无理由退货（定制类不支持）
+        if (trimmedValue.contains("定制类") && trimmedValue.contains("不支持")) {
+            log.info("匹配到: 7天无理由退货（定制类不支持）-> 1300030906");
+            return "1300030906";
+        }
+
+        // 1300030901 - 7天无理由退货（通用）
+        if (trimmedValue.contains("7天无理由退货") || trimmedValue.contains("七天无理由退货")) {
+            log.info("匹配到: 7天无理由退货 -> 1300030901");
+            return "1300030901";
+        }
+
+        // 1300030895 - 不支持7天无理由退货
+        if (trimmedValue.equals("不支持7天无理由退货") ||
+            trimmedValue.equals("0") ||
+            trimmedValue.equalsIgnoreCase("false") ||
+            trimmedValue.equals("否")) {
+            log.info("匹配到: 不支持7天无理由退货 -> 1300030895");
+            return "1300030895";
+        }
+
+        // 布尔值转换为通用标签
+        if (trimmedValue.equals("1") ||
+            trimmedValue.equalsIgnoreCase("true") ||
+            trimmedValue.equals("是")) {
+            log.info("匹配到: 布尔值true -> 1300030901");
+            return "1300030901";
+        }
+
+        // 默认：不支持7天无理由退货
+        log.warn("无理由退货字段未匹配到任何标签，使用默认值。输入值: [{}], 长度: {}", trimmedValue, trimmedValue.length());
+        return "1300030895";
     }
 }
