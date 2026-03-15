@@ -29,6 +29,9 @@
           <span class="company-name">{{ companyInfo?.companyName || '云创智链科技' }}</span>
           版权所有
         </p>
+        <p class="copyright">
+          软件使用者：廖光势 版权所有
+        </p>
       </div>
     </div>
   </footer>

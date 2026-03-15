@@ -22,31 +22,63 @@
               {{ detail }}
             </li>
           </ul>
-          <div v-if="step.image" class="step-image">
+          <div v-if="step.image" class="step-image" @click="openImagePreview(step.image, step.title)">
             <img :src="step.image" :alt="step.title" />
+            <div class="image-overlay">
+              <span class="zoom-icon">+</span>
+              <span class="zoom-text">点击查看大图</span>
+            </div>
           </div>
         </div>
       </div>
       
       <div class="tutorial-footer">
         <p class="footer-note">
-          💡 提示：如果在使用过程中遇到问题，请查看
+          提示：如果在使用过程中遇到问题，请查看
           <router-link to="/faq" class="inline-link">常见问题</router-link>
           或参考
           <router-link to="/installation" class="inline-link">安装指南</router-link>。
         </p>
       </div>
     </div>
+    
+    <!-- 图片预览弹窗 -->
+    <Teleport to="body">
+      <div v-if="previewImage" class="image-preview-modal" @click="closeImagePreview">
+        <div class="preview-content" @click.stop>
+          <button class="close-button" @click="closeImagePreview">✕</button>
+          <img :src="previewImage" :alt="previewTitle" />
+          <p class="preview-title">{{ previewTitle }}</p>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+
 interface TutorialStep {
   id: number
   title: string
   description: string
   details: string[]
   image?: string
+}
+
+const previewImage = ref<string | null>(null)
+const previewTitle = ref<string>('')
+
+const openImagePreview = (image: string, title: string) => {
+  previewImage.value = image
+  previewTitle.value = title
+  document.body.style.overflow = 'hidden'
+}
+
+const closeImagePreview = () => {
+  previewImage.value = null
+  previewTitle.value = ''
+  document.body.style.overflow = ''
 }
 
 const tutorialSteps: TutorialStep[] = [
@@ -195,7 +227,7 @@ const tutorialSteps: TutorialStep[] = [
 }
 
 .step-details li::before {
-  content: '✓';
+  content: '√';
   position: absolute;
   left: 0;
   color: var(--color-primary);
@@ -207,12 +239,142 @@ const tutorialSteps: TutorialStep[] = [
   border-radius: var(--radius-sm);
   overflow: hidden;
   border: 1px solid var(--color-border);
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.step-image:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(255, 209, 0, 0.2);
+}
+
+.step-image:hover .image-overlay {
+  opacity: 1;
 }
 
 .step-image img {
   width: 100%;
   height: auto;
   display: block;
+  transition: transform 0.3s ease;
+}
+
+.step-image:hover img {
+  transform: scale(1.02);
+}
+
+.image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.zoom-icon {
+  font-size: var(--font-size-3xl);
+}
+
+.zoom-text {
+  color: white;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+/* 图片预览弹窗 */
+.image-preview-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: var(--spacing-lg);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.preview-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  animation: zoomIn 0.3s ease;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.preview-content img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.preview-title {
+  color: white;
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  text-align: center;
+  margin: 0;
+}
+
+.close-button {
+  position: absolute;
+  top: -50px;
+  right: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: var(--font-size-xl);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.close-button:hover {
+  background: white;
+  color: var(--color-text-primary);
+  transform: rotate(90deg);
 }
 
 .tutorial-footer {
@@ -220,13 +382,14 @@ const tutorialSteps: TutorialStep[] = [
   padding: var(--spacing-lg);
   background-color: rgba(255, 209, 0, 0.1);
   border-radius: var(--radius-md);
-  border-left: 4px solid var(--color-primary);
+  border-top: 4px solid var(--color-primary);
 }
 
 .footer-note {
   color: var(--color-text-secondary);
   line-height: 1.6;
   margin: 0;
+  text-align: center;
 }
 
 .inline-link {

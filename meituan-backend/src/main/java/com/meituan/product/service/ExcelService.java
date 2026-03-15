@@ -1018,20 +1018,20 @@ public class ExcelService {
             }
             cell.setCellValue(valueStr);
         } else if (header.contains("无理由退货")) {
-            // 无理由退货需要填写标签ID，不是 0/1
-            // 标签ID参考：
-            // 1300030895 - 不支持7天无理由退货
-            // 1300030901 - 7天无理由退货（默认）
-            // 1300030902 - 7天无理由退货(一次性包装破损不支持)
-            // 1300030903 - 7天无理由退货(激活后不支持)
-            // 1300030904 - 7天无理由退货(使用后不支持)
-            // 1300030905 - 7天无理由退货(安装后不支持)
-            // 1300030906 - 7天无理由退货(定制类不支持)
-            String returnTagId = "1300030895"; // 默认不支持无理由退货
-            if (product.getNoReasonReturn() != null && product.getNoReasonReturn() == 1) {
-                returnTagId = "1300030901"; // 支持7天无理由退货
+            // 无理由退货需要填写标签ID
+            // 优先使用 noReasonReturnTagId 字段
+            String tagId = product.getNoReasonReturnTagId();
+            
+            // 如果 tagId 为空，根据 noReasonReturn 字段映射
+            if (tagId == null || tagId.trim().isEmpty()) {
+                if (product.getNoReasonReturn() != null && product.getNoReasonReturn() == 1) {
+                    tagId = "1300030901"; // 7天无理由退货
+                } else {
+                    tagId = "1300030895"; // 不支持7天无理由退货
+                }
             }
-            cell.setCellValue(returnTagId);
+            
+            cell.setCellValue(tagId);
         } else if (header.contains("组合商品")) {
             // 组合商品必须严格为 0 或 1
             String valueStr = "0";

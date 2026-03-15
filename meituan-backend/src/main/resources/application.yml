@@ -2,6 +2,12 @@
 spring:
   application:
     name: meituan-product-upload
+
+  # Tomcat 配置（增加超时时间）
+  server:
+    tomcat:
+      connection-timeout: 600000  # 10分钟超时
+      max-swallow-time: -1        # 取消最大吞咽时间限制
   
   # 数据源配置（远程服务器）
   datasource:
@@ -13,6 +19,14 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 5
       connection-timeout: 30000
+      socket-timeout: 120000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  # Jackson 时区配置
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
   
   # 文件上传配置
   servlet:
@@ -35,7 +49,14 @@ meituan:
     base-url: https://api.meituan.com
     timeout: 30000
   upload:
-    batch-size: 500
+    batch-size: 200
+  export:
+    max-rows-per-file: 2000  # 每个Excel文件最大导出行数
+  # 自适应映射配置
+  adaptive-mapping:
+    enabled: true
+    config-file: classpath:mapping-rules.json
+    confidence-threshold: 0.8
 
 # MinIO 配置（远程服务器）
 minio:

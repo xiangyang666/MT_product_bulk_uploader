@@ -88,6 +88,11 @@ public class Product {
      */
     private String imageUrl;
     
+    /**
+     * 商品图片列表（JSON数组，最多5张）
+     */
+    private String productImages;
+    
     // ============================================
     // 分类库存字段
     // ============================================
@@ -141,7 +146,12 @@ public class Product {
      * 重量单位
      */
     private String weightUnit;
-    
+
+    /**
+     * 品牌
+     */
+    private String brand;
+
     /**
      * 起购数
      */
@@ -247,6 +257,11 @@ public class Product {
      * 无理由退货：0-否，1-是
      */
     private Integer noReasonReturn;
+    
+    /**
+     * 无理由退货标签ID（美团平台标签ID）
+     */
+    private String noReasonReturnTagId;
     
     /**
      * 组合商品：0-否，1-是

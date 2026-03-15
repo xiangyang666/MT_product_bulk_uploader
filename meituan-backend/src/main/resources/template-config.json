@@ -30,6 +30,17 @@
       "min": 0
     },
     {
+      "field": "weight",
+      "headerName": "毛重",
+      "required": false,
+      "type": "decimal"
+    },
+    {
+      "field": "weightUnit",
+      "headerName": "毛重单位",
+      "required": false
+    },
+    {
       "field": "description",
       "headerName": "商品描述",
       "required": false,

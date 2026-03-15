@@ -25,10 +25,16 @@ import java.util.concurrent.TimeUnit;
 public class MinioService {
     
     private final MinioClient minioClient;
-    
+
     @Value("${minio.bucket-name}")
     private String bucketName;
-    
+
+    @Value("${minio.endpoint}")
+    private String endpoint;
+
+    @Value("${minio.port}")
+    private Integer port;
+
     /**
      * 初始化存储桶
      */
@@ -39,7 +45,7 @@ public class MinioService {
                             .bucket(bucketName)
                             .build()
             );
-            
+
             if (!exists) {
                 minioClient.makeBucket(
                         MakeBucketArgs.builder()
@@ -47,12 +53,46 @@ public class MinioService {
                                 .build()
                 );
                 log.info("创建MinIO存储桶成功: {}", bucketName);
+
+                // 设置存储桶为公共读取
+                setBucketPublicReadPolicy();
             } else {
                 log.info("MinIO存储桶已存在: {}", bucketName);
             }
         } catch (Exception e) {
             log.error("初始化MinIO存储桶失败", e);
             throw new RuntimeException("初始化MinIO存储桶失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 设置存储桶为公共读取策略
+     */
+    private void setBucketPublicReadPolicy() {
+        try {
+            String policy = String.format("""
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {"AWS": "*"},
+                            "Action": ["s3:GetObject"],
+                            "Resource": ["arn:aws:s3:::%s/*"]
+                        }
+                    ]
+                }
+                """, bucketName);
+
+            minioClient.setBucketPolicy(
+                    SetBucketPolicyArgs.builder()
+                            .bucket(bucketName)
+                            .config(policy)
+                            .build()
+            );
+            log.info("设置存储桶公共读取策略成功: {}", bucketName);
+        } catch (Exception e) {
+            log.warn("设置存储桶公共读取策略失败（可能已设置）: {}", e.getMessage());
         }
     }
     
@@ -128,23 +168,43 @@ public class MinioService {
     
     /**
      * 获取文件访问URL
-     * 
+     *
      * @param objectName 对象名称
      * @return 文件访问URL
      */
     public String getFileUrl(String objectName) {
+        try {
+            // 使用公共访问URL（永久有效，不需要签名）
+            // 移除 endpoint 中的 http:// 或 https:// 前缀
+            String cleanEndpoint = endpoint.replaceFirst("^https?://", "");
+            // 组合完整的访问地址：http://host:port/bucket/objectName
+            return "http://" + cleanEndpoint + ":" + port + "/" + bucketName + "/" + objectName;
+        } catch (Exception e) {
+            log.error("获取文件URL失败", e);
+            throw new RuntimeException("获取文件URL失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取预签名URL（用于私有文件）
+     *
+     * @param objectName 对象名称
+     * @param expiryDays 有效期（天）
+     * @return 文件访问URL
+     */
+    public String getPresignedUrl(String objectName, int expiryDays) {
         try {
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
                             .bucket(bucketName)
                             .object(objectName)
-                            .expiry(7, TimeUnit.DAYS) // URL有效期7天
+                            .expiry(expiryDays, TimeUnit.DAYS)
                             .build()
             );
         } catch (Exception e) {
-            log.error("获取文件URL失败", e);
-            throw new RuntimeException("获取文件URL失败: " + e.getMessage());
+            log.error("获取预签名URL失败", e);
+            throw new RuntimeException("获取预签名URL失败: " + e.getMessage());
         }
     }
     

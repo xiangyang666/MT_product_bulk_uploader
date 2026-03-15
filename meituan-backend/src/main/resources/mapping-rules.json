@@ -1,0 +1,296 @@
+{
+  "version": "1.0",
+  "description": "美团模板字段映射规则配置文件",
+  "rules": {
+    "productName": {
+      "fieldName": "productName",
+      "displayName": "商品名称",
+      "required": true,
+      "exactMatches": ["商品名称", "商品名", "名称"],
+      "keywords": ["商品", "名称", "品名", "product", "name"],
+      "synonyms": ["产品名称", "货品名称", "商品标题"],
+      "priority": 100
+    },
+    "categoryId": {
+      "fieldName": "categoryId",
+      "displayName": "类目ID",
+      "required": true,
+      "exactMatches": ["商品类目ID", "类目ID", "商品三级类目ID", "商品三级类目名称*"],
+      "keywords": ["类目", "分类", "category"],
+      "keywordCombinations": [
+        ["类目", "ID"],
+        ["类目", "编号"],
+        ["分类", "ID"],
+        ["三级", "类目"]
+      ],
+      "synonyms": ["品类ID", "类别ID", "分类编号"],
+      "priority": 100
+    },
+    "categoryName": {
+      "fieldName": "categoryName",
+      "displayName": "类目名称",
+      "required": false,
+      "exactMatches": ["商品类目名称", "类目名称", "商品三级类目名称"],
+      "keywords": ["类目", "名称", "分类"],
+      "keywordCombinations": [
+        ["类目", "名称"],
+        ["分类", "名称"]
+      ],
+      "synonyms": ["品类名称", "类别名称"],
+      "priority": 80
+    },
+    "price": {
+      "fieldName": "price",
+      "displayName": "价格",
+      "required": true,
+      "exactMatches": ["价格", "价格（元）", "单价", "价格(元)"],
+      "keywords": ["价格", "单价", "price"],
+      "synonyms": ["售价", "定价", "金额"],
+      "priority": 100
+    },
+    "stock": {
+      "fieldName": "stock",
+      "displayName": "库存",
+      "required": false,
+      "exactMatches": ["库存", "库存数量"],
+      "keywords": ["库存", "数量", "stock"],
+      "synonyms": ["存货", "库存量"],
+      "priority": 80
+    },
+    "weight": {
+      "fieldName": "weight",
+      "displayName": "重量",
+      "required": false,
+      "exactMatches": ["重量", "毛重", "净重"],
+      "keywords": ["重量", "毛重", "净重", "weight"],
+      "synonyms": ["重", "克重", "分量"],
+      "priority": 70
+    },
+    "weightUnit": {
+      "fieldName": "weightUnit",
+      "displayName": "重量单位",
+      "required": false,
+      "exactMatches": ["重量单位", "毛重单位"],
+      "keywords": ["重量", "单位"],
+      "keywordCombinations": [
+        ["重量", "单位"],
+        ["毛重", "单位"]
+      ],
+      "synonyms": ["计量单位"],
+      "priority": 60
+    },
+    "description": {
+      "fieldName": "description",
+      "displayName": "商品描述",
+      "required": false,
+      "exactMatches": ["商品描述", "文字详情", "描述", "详情"],
+      "keywords": ["描述", "详情", "说明", "description"],
+      "synonyms": ["商品说明", "产品描述", "商品介绍"],
+      "priority": 60
+    },
+    "textDetail": {
+      "fieldName": "textDetail",
+      "displayName": "文字详情",
+      "required": false,
+      "exactMatches": ["文字详情", "详情"],
+      "keywords": ["文字", "详情"],
+      "keywordCombinations": [
+        ["文字", "详情"]
+      ],
+      "synonyms": ["文本详情", "详细说明"],
+      "priority": 60
+    },
+    "upcEan": {
+      "fieldName": "upcEan",
+      "displayName": "商品条形码",
+      "required": false,
+      "exactMatches": ["商品条形码(upc/ean等)", "条形码(upc/ean等)", "条形码"],
+      "keywords": ["条形码", "upc", "ean"],
+      "synonyms": ["商品编码", "条码"],
+      "priority": 70
+    },
+    "specName": {
+      "fieldName": "specName",
+      "displayName": "商品规格名称",
+      "required": false,
+      "exactMatches": ["商品规格名称", "规格名称", "选择销售属性"],
+      "keywords": ["规格", "名称", "属性"],
+      "keywordCombinations": [
+        ["规格", "名称"],
+        ["销售", "属性"]
+      ],
+      "synonyms": ["规格", "属性名称"],
+      "priority": 60
+    },
+    "productionDate": {
+      "fieldName": "productionDate",
+      "displayName": "生产日期",
+      "required": false,
+      "exactMatches": ["生产日期"],
+      "keywords": ["生产", "日期"],
+      "keywordCombinations": [
+        ["生产", "日期"]
+      ],
+      "synonyms": ["制造日期", "生产时间"],
+      "priority": 60
+    },
+    "expiryDate": {
+      "fieldName": "expiryDate",
+      "displayName": "到期日期",
+      "required": false,
+      "exactMatches": ["到期日期", "过期日期"],
+      "keywords": ["到期", "过期", "日期"],
+      "keywordCombinations": [
+        ["到期", "日期"],
+        ["过期", "日期"]
+      ],
+      "synonyms": ["有效期", "保质期"],
+      "priority": 60
+    },
+    "isNearExpiry": {
+      "fieldName": "isNearExpiry",
+      "displayName": "是否临期",
+      "required": false,
+      "exactMatches": ["是否临期"],
+      "keywords": ["临期"],
+      "synonyms": ["临近过期"],
+      "priority": 50
+    },
+    "storeCode": {
+      "fieldName": "storeCode",
+      "displayName": "店内码/货号",
+      "required": false,
+      "exactMatches": ["店内码/货号", "店内码", "货号"],
+      "keywords": ["店内码", "货号"],
+      "synonyms": ["内部编码", "商品编号"],
+      "priority": 60
+    },
+    "storeCategory": {
+      "fieldName": "storeCategory",
+      "displayName": "店内分类",
+      "required": false,
+      "exactMatches": ["店内分类"],
+      "keywords": ["店内", "分类"],
+      "keywordCombinations": [
+        ["店内", "分类"]
+      ],
+      "synonyms": ["内部分类"],
+      "priority": 50
+    },
+    "shelfCode": {
+      "fieldName": "shelfCode",
+      "displayName": "货架码/位置码",
+      "required": false,
+      "exactMatches": ["货架码/位置码", "货架码", "位置码"],
+      "keywords": ["货架", "位置"],
+      "synonyms": ["货位码", "位置编码"],
+      "priority": 50
+    },
+    "minPurchase": {
+      "fieldName": "minPurchase",
+      "displayName": "起购数",
+      "required": false,
+      "exactMatches": ["起购数", "最小购买数"],
+      "keywords": ["起购", "最小"],
+      "synonyms": ["最低购买量", "起订量"],
+      "priority": 50
+    },
+    "saleStatus": {
+      "fieldName": "saleStatus",
+      "displayName": "售卖状态",
+      "required": false,
+      "exactMatches": ["售卖状态", "销售状态"],
+      "keywords": ["售卖", "销售", "状态"],
+      "synonyms": ["上架状态"],
+      "priority": 60
+    },
+    "sellingPoint": {
+      "fieldName": "sellingPoint",
+      "displayName": "商品卖点",
+      "required": false,
+      "exactMatches": ["商品卖点", "卖点"],
+      "keywords": ["卖点"],
+      "synonyms": ["产品卖点", "特色"],
+      "priority": 50
+    },
+    "sellingPointPeriod": {
+      "fieldName": "sellingPointPeriod",
+      "displayName": "卖点展示期",
+      "required": false,
+      "exactMatches": ["卖点展示期"],
+      "keywords": ["卖点", "展示"],
+      "keywordCombinations": [
+        ["卖点", "展示"]
+      ],
+      "synonyms": ["卖点有效期"],
+      "priority": 40
+    },
+    "availableTime": {
+      "fieldName": "availableTime",
+      "displayName": "可售时间",
+      "required": false,
+      "exactMatches": ["可售时间"],
+      "keywords": ["可售", "时间"],
+      "keywordCombinations": [
+        ["可售", "时间"]
+      ],
+      "synonyms": ["销售时间"],
+      "priority": 50
+    },
+    "presaleDeliveryTime": {
+      "fieldName": "presaleDeliveryTime",
+      "displayName": "预售的可配送时间",
+      "required": false,
+      "exactMatches": ["预售的可配送时间", "预售配送时间"],
+      "keywords": ["预售", "配送", "时间"],
+      "keywordCombinations": [
+        ["预售", "配送"],
+        ["预售", "时间"]
+      ],
+      "synonyms": ["预售发货时间"],
+      "priority": 50
+    },
+    "productAttributes": {
+      "fieldName": "productAttributes",
+      "displayName": "商品属性",
+      "required": false,
+      "exactMatches": ["商品属性"],
+      "keywords": ["商品", "属性"],
+      "keywordCombinations": [
+        ["商品", "属性"]
+      ],
+      "synonyms": ["产品属性"],
+      "priority": 50
+    },
+    "noReasonReturnTagId": {
+      "fieldName": "noReasonReturnTagId",
+      "displayName": "无理由退货",
+      "required": false,
+      "exactMatches": ["无理由退货"],
+      "keywords": ["无理由", "退货"],
+      "keywordCombinations": [
+        ["无理由", "退货"]
+      ],
+      "synonyms": ["七天无理由"],
+      "priority": 55
+    },
+    "brand": {
+      "fieldName": "brand",
+      "displayName": "商品品牌",
+      "required": false,
+      "exactMatches": ["商品品牌", "品牌"],
+      "keywords": ["品牌", "brand"],
+      "synonyms": ["厂商", "制造商"],
+      "priority": 60
+    },
+    "origin": {
+      "fieldName": "origin",
+      "displayName": "产地",
+      "required": false,
+      "exactMatches": ["产地", "原产地"],
+      "keywords": ["产地", "原产"],
+      "synonyms": ["生产地", "来源地"],
+      "priority": 50
+    }
+  }
+}

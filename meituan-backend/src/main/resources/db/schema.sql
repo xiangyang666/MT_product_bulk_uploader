@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS t_product (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
     merchant_id BIGINT NOT NULL COMMENT '商家ID',
     product_name VARCHAR(255) NOT NULL COMMENT '商品名称',
-    category_id VARCHAR(50) NOT NULL COMMENT '类目ID',
+    category_id VARCHAR(200) NOT NULL COMMENT '类目ID',
     price DECIMAL(10, 2) NOT NULL COMMENT '价格',
     stock INT DEFAULT 0 COMMENT '库存',
     description TEXT COMMENT '商品描述',

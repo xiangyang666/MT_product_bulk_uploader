@@ -28,11 +28,59 @@ public interface ProductMapper extends BaseMapper<Product> {
     
     /**
      * 根据商家ID查询商品列表
-     * 
+     *
      * @param merchantId 商家ID
      * @return 商品列表
      */
     List<Product> selectByMerchantId(@Param("merchantId") Long merchantId);
+
+    /**
+     * 根据商家ID分页查询商品列表（支持搜索和日期筛选）
+     *
+     * @param merchantId 商家ID
+     * @param keyword 搜索关键词（可选）
+     * @param startDate 开始日期（可选）
+     * @param endDate 结束日期（可选）
+     * @param offset 偏移量
+     * @param limit 限制数量
+     * @return 商品列表
+     */
+    List<Product> selectByMerchantIdPage(
+        @Param("merchantId") Long merchantId,
+        @Param("keyword") String keyword,
+        @Param("startDate") String startDate,
+        @Param("endDate") String endDate,
+        @Param("offset") Integer offset,
+        @Param("limit") Integer limit
+    );
+
+    /**
+     * 根据条件统计商品数量
+     *
+     * @param merchantId 商家ID
+     * @param keyword 搜索关键词（可选）
+     * @param startDate 开始日期（可选）
+     * @param endDate 结束日期（可选）
+     * @return 商品数量
+     */
+    @Select("<script>" +
+            "SELECT COUNT(*) FROM t_product WHERE merchant_id = #{merchantId} " +
+            "<if test='keyword != null and keyword != \"\"'>" +
+            "AND (product_name LIKE CONCAT('%', #{keyword}, '%') OR category_id LIKE CONCAT('%', #{keyword}, '%')) " +
+            "</if>" +
+            "<if test='startDate != null and startDate != \"\"'>" +
+            "AND DATE(created_time) &gt;= #{startDate} " +
+            "</if>" +
+            "<if test='endDate != null and endDate != \"\"'>" +
+            "AND DATE(created_time) &lt;= #{endDate} " +
+            "</if>" +
+            "</script>")
+    int countByMerchantId(
+        @Param("merchantId") Long merchantId,
+        @Param("keyword") String keyword,
+        @Param("startDate") String startDate,
+        @Param("endDate") String endDate
+    );
     
     /**
      * 根据商家ID删除商品

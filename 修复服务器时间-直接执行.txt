@@ -1,0 +1,23 @@
+# 在服务器上直接执行以下命令（已经登录到 106.55.102.48）
+
+# 1. 查看当前时间（确认问题）
+date
+
+# 2. 设置正确的时区为中国时区
+sudo timedatectl set-timezone Asia/Shanghai
+
+# 3. 启用 NTP 时间同步（自动同步正确时间）
+sudo timedatectl set-ntp true
+
+# 4. 等待几秒让 NTP 同步
+sleep 5
+
+# 5. 验证时间是否已修正
+date
+
+# 6. 查看详细的时间同步状态
+timedatectl
+
+# 如果 NTP 同步不工作，手动设置时间：
+# sudo date -s "2025-02-23 14:30:00"
+# sudo hwclock --systohc

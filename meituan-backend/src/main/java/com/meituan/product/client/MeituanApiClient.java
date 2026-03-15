@@ -148,7 +148,7 @@ public class MeituanApiClient {
     
     /**
      * 验证访问令牌
-     * 
+     *
      * @param accessToken 访问令牌
      * @return 是否有效
      */
@@ -156,28 +156,77 @@ public class MeituanApiClient {
         if (accessToken == null || accessToken.trim().isEmpty()) {
             return false;
         }
-        
+
         try {
             String url = baseUrl + "/auth/validate";
             HttpHeaders headers = createHeaders(accessToken);
             HttpEntity<Void> request = new HttpEntity<>(headers);
-            
+
             ResponseEntity<MeituanApiResponse> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
                 request,
                 MeituanApiResponse.class
             );
-            
+
             MeituanApiResponse apiResponse = response.getBody();
             return apiResponse != null && apiResponse.isSuccess();
-            
+
         } catch (Exception e) {
             log.error("验证访问令牌失败", e);
             return false;
         }
     }
-    
+
+    /**
+     * 删除单个商品
+     *
+     * @param appFoodCode 美团商品ID（app_food_code）
+     * @param accessToken 访问令牌
+     * @return API响应
+     */
+    public MeituanApiResponse<Map<String, Object>> deleteProduct(String appFoodCode, String accessToken) {
+        log.info("开始调用美团API删除商品，商品ID：{}", appFoodCode);
+
+        try {
+            // 构建请求
+            String url = baseUrl + "/product/delete";
+            HttpHeaders headers = createHeaders(accessToken);
+
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("app_food_code", appFoodCode);
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+
+            // 发送请求
+            ResponseEntity<MeituanApiResponse> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                request,
+                MeituanApiResponse.class
+            );
+
+            MeituanApiResponse<Map<String, Object>> apiResponse = response.getBody();
+
+            if (apiResponse == null || !apiResponse.isSuccess()) {
+                String errorCode = apiResponse != null ? apiResponse.getCode() : "UNKNOWN";
+                String errorMsg = apiResponse != null ? apiResponse.getMessage() : "未知错误";
+                log.warn("删除商品失败，商品ID：{}，错误：{}", appFoodCode, errorMsg);
+                throw new MeituanApiException("美团API调用失败：" + errorMsg, errorCode);
+            }
+
+            log.info("成功删除商品，商品ID：{}", appFoodCode);
+            return apiResponse;
+
+        } catch (Exception e) {
+            log.error("调用美团API删除商品失败，商品ID：{}", appFoodCode, e);
+            if (e instanceof MeituanApiException) {
+                throw e;
+            }
+            throw new MeituanApiException("调用美团API失败：" + e.getMessage(), "NETWORK_ERROR", e);
+        }
+    }
+
     /**
      * 创建请求头
      */

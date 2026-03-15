@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(mvn clean compile:*)",
+      "Bash(mysql:*)",
+      "WebSearch",
+      "Bash(curl:*)",
+      "Bash(pnpm run:*)",
+      "Bash(echo \nSELECT \n  no_reason_return,\n  available_time,\n  COUNT\\(*\\) as count\nFROM t_product \nWHERE merchant_id = 1\n  AND deleted = 0\n  AND \\(no_reason_return NOT IN \\(0, 1\\) OR available_time IS NOT NULL\\)\nGROUP BY no_reason_return, available_time\nLIMIT 20;\n:*)",
+      "Bash(iconv:*)",
+      "Bash(python3:*)",
+      "Bash(javac:*)",
+      "Bash(mvn clean:*)",
+      "Bash(where mvn.cmd)"
+    ]
+  }
+}

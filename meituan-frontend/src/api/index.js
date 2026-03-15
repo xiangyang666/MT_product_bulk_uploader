@@ -270,3 +270,78 @@ export const getTemplateStatus = (merchantId = 1) => {
     params: { merchantId }
   })
 }
+
+
+// ==================== 商品图片管理 API ====================
+
+/**
+ * 上传商品图片
+ * @param {number} productId - 商品ID
+ * @param {File} file - 图片文件
+ * @param {Function} onProgress - 上传进度回调
+ * @returns {Promise}
+ */
+export const uploadProductImage = (productId, file, onProgress) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  return request.post(`/products/${productId}/images/upload`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
+    timeout: 60000, // 1分钟超时
+    onUploadProgress: (progressEvent) => {
+      if (onProgress && progressEvent.total) {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+        onProgress(percentCompleted)
+      }
+    }
+  })
+}
+
+/**
+ * 删除商品图片
+ * @param {number} productId - 商品ID
+ * @param {string} imageUrl - 图片URL
+ * @returns {Promise}
+ */
+export const deleteProductImage = (productId, imageUrl) => {
+  return request.delete(`/products/${productId}/images`, {
+    params: { imageUrl }
+  })
+}
+
+/**
+ * 获取商品图片列表
+ * @param {number} productId - 商品ID
+ * @returns {Promise}
+ */
+export const getProductImages = (productId) => {
+  return request.get(`/products/${productId}/images`)
+}
+
+/**
+ * 导出商品图片
+ * @param {Object} params - 导出参数
+ * @param {number} params.merchantId - 商家ID
+ * @param {string} params.namingType - 命名方式：PRODUCT_NAME | BARCODE | STORE_CODE
+ * @param {Array<number>} params.productIds - 商品ID列表（可选）
+ * @returns {Promise<Blob>}
+ */
+export const exportProductImages = (params) => {
+  return request.post('/products/export-images', params, {
+    responseType: 'blob',
+    timeout: 600000 // 10分钟超时，适合大批量图片导出
+  })
+}
+
+/**
+ * 获取商品图片统计
+ * @param {number} merchantId - 商家ID
+ * @returns {Promise}
+ */
+export const getProductImageStats = (merchantId = 1) => {
+  return request.get('/products/images/stats', {
+    params: { merchantId }
+  })
+}

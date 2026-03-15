@@ -37,3 +37,11 @@ Thumbs.db
 # 测试覆盖率
 coverage/
 *.lcov
+
+# 安装包（文件过大，不上传到GitHub）
+安装包/
+*.exe
+*.dmg
+*.zip
+meituan-backend/uploads/templates/*.xlsx
+meituan-backend/uploads/templates/*.zip

@@ -63,6 +63,14 @@
       >
         一键删除到美团
       </el-button>
+      <el-button
+        type="success"
+        @click="handleExportImages"
+        style="background-color: #67C23A; border-color: #67C23A;"
+      >
+        <el-icon><Download /></el-icon>
+        导出商品图片
+      </el-button>
     </div>
 
     <!-- 商品表格 -->
@@ -87,16 +95,25 @@
         <el-table-column prop="productName" label="商品名称" width="200" show-overflow-tooltip />
         
         <!-- 图片视频 -->
-        <el-table-column label="商品图片" width="100">
+        <el-table-column label="商品图片" width="150">
           <template #default="scope">
-            <el-image 
-              v-if="scope.row.productImage || scope.row.imageUrl"
-              :src="scope.row.productImage || scope.row.imageUrl" 
-              :preview-src-list="[scope.row.productImage || scope.row.imageUrl]"
-              fit="cover"
-              style="width: 50px; height: 50px; border-radius: 4px;"
-            />
-            <span v-else style="color: #999;">无图片</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <el-image 
+                v-if="scope.row.productImage || scope.row.imageUrl"
+                :src="scope.row.productImage || scope.row.imageUrl" 
+                :preview-src-list="getProductImageList(scope.row)"
+                fit="cover"
+                style="width: 50px; height: 50px; border-radius: 4px; cursor: pointer;"
+              />
+              <el-button 
+                type="primary" 
+                size="small" 
+                link
+                @click="handleManageImages(scope.row)"
+              >
+                管理图片
+              </el-button>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="coverVideo" label="封面视频" width="120" show-overflow-tooltip />
@@ -262,14 +279,75 @@
       <span>已加载 {{ products.length }} 条</span>
       <span v-if="total > 0">/ 共 {{ total }} 条</span>
     </div>
+
+    <!-- 图片管理对话框 -->
+    <el-dialog
+      v-model="imageDialogVisible"
+      title="管理商品图片"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <div class="image-manager">
+        <div class="image-upload-area">
+          <el-upload
+            :action="''"
+            :http-request="handleImageUpload"
+            :show-file-list="false"
+            :before-upload="beforeImageUpload"
+            accept="image/*"
+            :disabled="currentProductImages.length >= 5"
+          >
+            <el-button 
+              type="primary" 
+              :disabled="currentProductImages.length >= 5"
+            >
+              <el-icon><Upload /></el-icon>
+              上传图片
+            </el-button>
+          </el-upload>
+          <div class="upload-tip">
+            最多上传5张图片，每张不超过10MB
+            ({{ currentProductImages.length }}/5)
+          </div>
+        </div>
+
+        <div class="image-list">
+          <div 
+            v-for="(imageUrl, index) in currentProductImages" 
+            :key="index"
+            class="image-item"
+          >
+            <el-image 
+              :src="imageUrl" 
+              :preview-src-list="currentProductImages"
+              :initial-index="index"
+              fit="cover"
+              class="image-preview"
+            />
+            <div class="image-actions">
+              <el-button 
+                type="danger" 
+                size="small"
+                @click="handleDeleteImage(imageUrl)"
+              >
+                删除
+              </el-button>
+            </div>
+          </div>
+          <div v-if="currentProductImages.length === 0" class="no-images">
+            暂无图片
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
-import { Search, Loading } from '@element-plus/icons-vue'
-import request from '@/api/index.js'
+import { Search, Loading, Download, Upload } from '@element-plus/icons-vue'
+import request, { uploadProductImage, deleteProductImage, getProductImages, exportProductImages } from '@/api/index.js'
 
 const products = ref([])
 const loading = ref(false)
@@ -283,6 +361,11 @@ const total = ref(0)
 const selectedIds = ref([])
 const hasMore = ref(true)
 const tableRef = ref(null)
+
+// 图片管理相关
+const imageDialogVisible = ref(false)
+const currentProduct = ref(null)
+const currentProductImages = ref([])
 
 // 格式化日期（YYYY-MM-DD）
 const formatDate = (dateTime) => {
@@ -632,6 +715,178 @@ const handleDeleteFromMeituan = async () => {
   }
 }
 
+// ==================== 图片管理功能 ====================
+
+// 获取商品图片列表（用于预览）
+const getProductImageList = (row) => {
+  try {
+    if (row.productImages) {
+      const images = JSON.parse(row.productImages)
+      return Array.isArray(images) ? images : []
+    }
+    if (row.productImage || row.imageUrl) {
+      return [row.productImage || row.imageUrl]
+    }
+  } catch (e) {
+    if (row.productImage || row.imageUrl) {
+      return [row.productImage || row.imageUrl]
+    }
+  }
+  return []
+}
+
+// 打开图片管理对话框
+const handleManageImages = async (row) => {
+  currentProduct.value = row
+  imageDialogVisible.value = true
+  
+  // 加载商品图片
+  try {
+    const response = await getProductImages(row.id)
+    if (response.code === 200) {
+      currentProductImages.value = response.data.imageUrls || []
+    }
+  } catch (error) {
+    ElMessage.error('加载图片失败')
+  }
+}
+
+// 图片上传前检查
+const beforeImageUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt10M = file.size / 1024 / 1024 < 10
+
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件')
+    return false
+  }
+  if (!isLt10M) {
+    ElMessage.error('图片大小不能超过10MB')
+    return false
+  }
+  if (currentProductImages.value.length >= 5) {
+    ElMessage.error('每个商品最多只能上传5张图片')
+    return false
+  }
+  return true
+}
+
+// 处理图片上传
+const handleImageUpload = async ({ file }) => {
+  const loading = ElLoading.service({
+    lock: true,
+    text: '上传中...',
+    background: 'rgba(0, 0, 0, 0.7)'
+  })
+
+  try {
+    const response = await uploadProductImage(currentProduct.value.id, file, (progress) => {
+      loading.setText(`上传中... ${progress}%`)
+    })
+
+    if (response.code === 200) {
+      currentProductImages.value = response.data.imageUrls
+      ElMessage.success('上传成功')
+      
+      // 刷新商品列表
+      fetchProducts()
+    }
+  } catch (error) {
+    ElMessage.error('上传失败')
+  } finally {
+    loading.close()
+  }
+}
+
+// 删除图片
+const handleDeleteImage = async (imageUrl) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这张图片吗？', '删除确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    const loading = ElLoading.service({
+      lock: true,
+      text: '删除中...',
+      background: 'rgba(0, 0, 0, 0.7)'
+    })
+
+    try {
+      const response = await deleteProductImage(currentProduct.value.id, imageUrl)
+      if (response.code === 200) {
+        currentProductImages.value = response.data.imageUrls
+        ElMessage.success('删除成功')
+        
+        // 刷新商品列表
+        fetchProducts()
+      }
+    } finally {
+      loading.close()
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+// 导出商品图片
+const handleExportImages = async () => {
+  try {
+    // 显示命名方式选择对话框
+    const { value: namingType } = await ElMessageBox({
+      title: '导出商品图片',
+      message: '请选择图片命名方式',
+      showInput: true,
+      inputType: 'select',
+      inputOptions: [
+        { label: '商品名称', value: 'PRODUCT_NAME' },
+        { label: '条形码', value: 'BARCODE' },
+        { label: '店内码/货号', value: 'STORE_CODE' }
+      ],
+      inputValue: 'PRODUCT_NAME',
+      confirmButtonText: '确认导出',
+      cancelButtonText: '取消'
+    })
+
+    const loading = ElLoading.service({
+      lock: true,
+      text: '正在导出图片，请稍候...',
+      background: 'rgba(0, 0, 0, 0.7)'
+    })
+
+    try {
+      const blob = await exportProductImages({
+        merchantId: 1,
+        namingType: namingType || 'PRODUCT_NAME',
+        productIds: selectedIds.value.length > 0 ? selectedIds.value : null
+      })
+
+      // 下载ZIP文件
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').split('.')[0]
+      link.download = `商品图片_${timestamp}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      ElMessage.success('图片导出成功')
+    } finally {
+      loading.close()
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('导出失败:', error)
+      ElMessage.error('图片导出失败')
+    }
+  }
+}
+
 onMounted(async () => {
   selectToday()
   
@@ -736,5 +991,61 @@ onMounted(async () => {
   background-color: #fff7e6;
   border-radius: 4px;
   border-left: 3px solid #FFD100;
+}
+
+/* 图片管理对话框样式 */
+.image-manager {
+  padding: 16px 0;
+}
+
+.image-upload-area {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.upload-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.image-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 16px;
+  min-height: 150px;
+}
+
+.image-item {
+  position: relative;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.image-item:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.image-preview {
+  width: 100%;
+  height: 120px;
+  cursor: pointer;
+}
+
+.image-actions {
+  padding: 8px;
+  background-color: #f5f7fa;
+  text-align: center;
+}
+
+.no-images {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px;
+  color: #909399;
+  font-size: 14px;
 }
 </style>

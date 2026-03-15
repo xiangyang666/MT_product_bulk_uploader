@@ -55,9 +55,18 @@
           <div class="download-info">
             <h3 class="download-title">美团商品批量上传系统 v1.0</h3>
             <p class="download-meta">
-              <span class="meta-item">📦 文件大小：约 50MB</span>
-              <span class="meta-item">💻 适用系统：Windows 10/11</span>
-              <span class="meta-item">🆓 完全免费</span>
+              <span class="meta-item">
+                <Icon name="package" :size="16" />
+                文件大小：约 50MB
+              </span>
+              <span class="meta-item">
+                <Icon name="monitor" :size="16" />
+                适用系统：Windows 10/11
+              </span>
+              <span class="meta-item">
+                <Icon name="gift" :size="16" />
+                完全免费
+              </span>
             </p>
           </div>
           <router-link to="/#download" class="download-button">
@@ -81,7 +90,8 @@
           </ol>
           <div class="config-note">
             <p>
-              💡 <strong>提示：</strong>如果需要修改配置，可以在系统设置中随时调整。
+              <Icon name="lightbulb" :size="16" class="note-icon" />
+              <strong>提示：</strong>如果需要修改配置，可以在系统设置中随时调整。
             </p>
           </div>
         </div>
@@ -91,6 +101,8 @@
 </template>
 
 <script setup lang="ts">
+import Icon from '@/components/Icon.vue'
+
 interface SystemRequirement {
   category: string
   items: string[]
@@ -401,6 +413,14 @@ const installationSteps: InstallationStep[] = [
   margin: 0;
   color: var(--color-text-secondary);
   line-height: 1.6;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.note-icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
 /* 响应式 */

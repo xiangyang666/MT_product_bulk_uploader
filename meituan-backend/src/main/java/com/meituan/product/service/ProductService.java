@@ -18,10 +18,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * 商品服务类
@@ -40,6 +43,9 @@ public class ProductService {
     
     @Value("${meituan.upload.batch-size:500}")
     private Integer batchSize;
+
+    @Value("${meituan.export.max-rows-per-file:2000}")
+    private Integer maxRowsPerFile;
     
     /**
      * 获取商品统计信息
@@ -164,10 +170,20 @@ public class ProductService {
             // 2. 设置商家ID
             products.forEach(product -> product.setMerchantId(merchantId));
             
-            // 3. 批量插入数据库
+            // 3. 分批插入数据库
             if (!products.isEmpty()) {
-                int insertCount = productMapper.batchInsert(products);
-                log.info("成功导入{}条商品到数据库", insertCount);
+                int totalInserted = 0;
+                int totalBatches = (products.size() + batchSize - 1) / batchSize;
+                log.info("开始分批导入，总共{}条数据，批次大小{}，共{}批", products.size(), batchSize, totalBatches);
+
+                for (int i = 0; i < products.size(); i += batchSize) {
+                    int end = Math.min(i + batchSize, products.size());
+                    List<Product> batch = products.subList(i, end);
+                    int insertCount = productMapper.batchInsert(batch);
+                    totalInserted += insertCount;
+                    log.info("批次 {}/{} 导入成功 {} 条", (i / batchSize) + 1, totalBatches, insertCount);
+                }
+                log.info("成功导入{}条商品到数据库", totalInserted);
             }
             
             return ImportResult.success(products);
@@ -212,17 +228,53 @@ public class ProductService {
     
     /**
      * 根据商家ID查询商品列表
-     * 
+     *
      * @param merchantId 商家ID
      * @return 商品列表
      */
     public List<Product> getProductsByMerchantId(Long merchantId) {
         return productMapper.selectByMerchantId(merchantId);
     }
-    
+
+    /**
+     * 根据商家ID分页��询商品列表（支持搜索和日期筛选）
+     *
+     * @param merchantId 商家ID
+     * @param keyword 搜索关键词（可选）
+     * @param startDate 开始日期（可选，格式：YYYY-MM-DD）
+     * @param endDate 结束日期（可选，格式：YYYY-MM-DD）
+     * @param page 页码（从1开始）
+     * @param size 每页大小
+     * @return 分页结果
+     */
+    public java.util.Map<String, Object> getProductsByMerchantIdPage(
+            Long merchantId, String keyword, String startDate, String endDate, int page, int size) {
+
+        // 计算偏移量
+        int offset = (page - 1) * size;
+
+        // 查询总数
+        int total = productMapper.countByMerchantId(merchantId, keyword, startDate, endDate);
+
+        // 查询分页数据
+        List<Product> products = productMapper.selectByMerchantIdPage(
+            merchantId, keyword, startDate, endDate, offset, size
+        );
+
+        // 构建结果
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("list", products);
+        result.put("total", total);
+        result.put("page", page);
+        result.put("size", size);
+        result.put("totalPages", (int) Math.ceil((double) total / size));
+
+        return result;
+    }
+
     /**
      * 根据ID查询商品
-     * 
+     *
      * @param id 商品ID
      * @return 商品信息
      */
@@ -269,42 +321,59 @@ public class ProductService {
     
     /**
      * 生成全部商品的美团上传模板
-     * 
+     *
      * @param merchantId 商家ID
+     * @param limit 导出数量限制（可选，用于测试。null或<=0表示导出全部）
      * @return Excel文件字节数组
      */
-    public byte[] generateAllProductsTemplate(Long merchantId) {
-        log.info("开始生成全部商品模板，商家ID：{}", merchantId);
-        
+    public byte[] generateAllProductsTemplate(Long merchantId, Integer limit) {
+        log.info("开始生成商品模板，商家ID：{}，导出数量限制：{}", merchantId, limit);
+
         if (merchantId == null) {
             throw new IllegalArgumentException("商家ID不能为空");
         }
-        
+
         long startTime = System.currentTimeMillis();
-        
+
+        // 判断是否为测试模式（指定了limit）
+        boolean isTestMode = limit != null && limit > 0;
+
         // 查询商品总数
         ProductStats stats = productMapper.getStats(merchantId);
         if (stats == null || stats.getTotalCount() == 0) {
             throw new IllegalArgumentException("暂无商品数据，请先导入商品");
         }
-        
+
         log.info("商家共有{}个商品，开始生成模板", stats.getTotalCount());
-        
-        // 查询所有商品
-        List<Product> products = productMapper.selectByMerchantId(merchantId);
-        
+
+        // 查询商品（如果指定了limit，则只查询指定数量）
+        List<Product> products;
+        if (isTestMode) {
+            // 测试模式：只查询指定数量的商品
+            products = productMapper.selectRecent(merchantId, limit);
+            log.info("测试模式：只导出{}个商品进行测试", products.size());
+        } else {
+            // 正式模式：查询所有商品
+            products = productMapper.selectByMerchantId(merchantId);
+        }
+
         if (products.isEmpty()) {
             throw new IllegalArgumentException("未找到商品数据");
         }
-        
+
         // 生成模板（使用用户上传的模板）
         byte[] excelData = excelService.generateMeituanTemplateFromUserTemplate(products, merchantId);
-        
+
         // 生成文件名
         String timestamp = LocalDateTime.now()
             .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String fileName = String.format("meituan_all_products_%s.xlsx", timestamp);
-        
+        String fileName;
+        if (isTestMode) {
+            fileName = String.format("meituan_test_%d_products_%s.xlsx", limit, timestamp);
+        } else {
+            fileName = String.format("meituan_all_products_%s.xlsx", timestamp);
+        }
+
         // 保存文件到服务器
         try {
             fileStorageService.saveTemplateFile(fileName, excelData, merchantId, products.size());
@@ -313,40 +382,182 @@ public class ProductService {
             log.error("保存文件记录失败", e);
             // 不影响主流程
         }
-        
-        // 生成成功后，将所有商品状态更新为"已上传"（status = 1）
-        try {
-            int updatedCount = productMapper.updateStatusByMerchantId(merchantId, 1);
-            log.info("成功更新{}个商品状态为已上传", updatedCount);
-        } catch (Exception e) {
-            log.error("更新商品状态失败", e);
-            // 不影响模板生成，继续返回
+
+        // 生成成功后，如果是正式模式（非测试），将所有商品状态更新为"已上传"（status = 1）
+        // 测试模式不更新状态
+        if (!isTestMode) {
+            try {
+                int updatedCount = productMapper.updateStatusByMerchantId(merchantId, 1);
+                log.info("成功更新{}个商品状态为已上传", updatedCount);
+            } catch (Exception e) {
+                log.error("更新商品状态失败", e);
+                // 不影响模板生成，继续返回
+            }
         }
-        
+
         // 记录操作日志
         try {
             long duration = System.currentTimeMillis() - startTime;
             OperationLog operationLog = new OperationLog();
             operationLog.setUserId(1L); // 默认用户ID，实际应从上下文获取
             operationLog.setUsername("admin"); // 默认用户名，实际应从上下文获取
-            operationLog.setOperationType("GENERATE_ALL");
-            operationLog.setOperationDesc(String.format("生成全部商品模板，共%d个商品", products.size()));
+            operationLog.setOperationType(isTestMode ? "GENERATE_TEST" : "GENERATE_ALL");
+            operationLog.setOperationDesc(String.format("生成商品模板，%s共%d个商品",
+                isTestMode ? "测试模式 " : "", products.size()));
             operationLog.setTargetType("PRODUCT");
             operationLog.setTargetId(String.valueOf(merchantId));
             operationLog.setResult(1); // 1-成功
             operationLog.setDuration((int) duration);
             operationLog.setCreatedAt(LocalDateTime.now());
-            
+
             operationLogMapper.insert(operationLog);
             log.info("操作日志记录成功");
         } catch (Exception e) {
             log.error("记录操作日志失败", e);
             // 日志记录失败不影响主业务
         }
-        
+
         return excelData;
     }
-    
+
+    /**
+     * 分批导出商品模板为ZIP文件（自动拆分，每个Excel最多2000条）
+     *
+     * @param merchantId 商家ID
+     * @param limit 导出数量限制（可选，用于测试。null或<=0表示导出全部）
+     * @return ZIP文件字节数组
+     */
+    public byte[] generateProductsTemplateAsZip(Long merchantId, Integer limit) {
+        log.info("开始分批导出商品模板为ZIP，商家ID：{}，导出数量限制：{}", merchantId, limit);
+
+        if (merchantId == null) {
+            throw new IllegalArgumentException("商家ID不能为空");
+        }
+
+        long startTime = System.currentTimeMillis();
+
+        // 判断是否���测试模式（指定了limit）
+        boolean isTestMode = limit != null && limit > 0;
+
+        // 查询商品总数
+        ProductStats stats = productMapper.getStats(merchantId);
+        if (stats == null || stats.getTotalCount() == 0) {
+            throw new IllegalArgumentException("暂无商品数据，请先导入商品");
+        }
+
+        Long totalCountLong = stats.getTotalCount();
+        int totalCount = totalCountLong != null ? totalCountLong.intValue() : 0;
+        log.info("商家共有{}个商品，每个Excel最多{}条", totalCount, maxRowsPerFile);
+
+        // 计算需要拆分成多少个文件
+        int fileCount = (int) Math.ceil((double) totalCount / maxRowsPerFile);
+        log.info("需要拆分成{}个Excel文件", fileCount);
+
+        // 查询所有商品
+        List<Product> allProducts;
+        if (isTestMode) {
+            allProducts = productMapper.selectRecent(merchantId, limit);
+            log.info("测试模式：只导出{}个商品进行测试", allProducts.size());
+        } else {
+            allProducts = productMapper.selectByMerchantId(merchantId);
+        }
+
+        if (allProducts.isEmpty()) {
+            throw new IllegalArgumentException("未找到商品数据");
+        }
+
+        // 生成ZIP文件
+        try (ByteArrayOutputStream zipOutputStream = new ByteArrayOutputStream();
+             ZipOutputStream zip = new ZipOutputStream(zipOutputStream)) {
+
+            // 生成时间戳
+            String timestamp = LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+
+            // 分批生成Excel并添加到ZIP
+            for (int i = 0; i < fileCount; i++) {
+                int fromIndex = i * maxRowsPerFile;
+                int toIndex = Math.min((i + 1) * maxRowsPerFile, allProducts.size());
+                List<Product> batchProducts = allProducts.subList(fromIndex, toIndex);
+
+                log.info("生成第{}/{}个Excel文件，包含{}条数据", i + 1, fileCount, batchProducts.size());
+
+                // 生成Excel字节数组
+                byte[] excelData = excelService.generateMeituanTemplateFromUserTemplate(batchProducts, merchantId);
+
+                // 添加到ZIP
+                String excelFileName;
+                if (isTestMode) {
+                    excelFileName = String.format("meituan_test_part%d_%d_products_%s.xlsx",
+                        i + 1, batchProducts.size(), timestamp);
+                } else {
+                    excelFileName = String.format("meituan_products_part%d_%d_products_%s.xlsx",
+                        i + 1, batchProducts.size(), timestamp);
+                }
+
+                ZipEntry entry = new ZipEntry(excelFileName);
+                zip.putNextEntry(entry);
+                zip.write(excelData);
+                zip.closeEntry();
+
+                log.info("成功添加{}到ZIP，大小：{}字节", excelFileName, excelData.length);
+            }
+
+            zip.finish();
+            byte[] zipData = zipOutputStream.toByteArray();
+
+            // 保存文件记录到数据库
+            try {
+                String zipFileName = String.format("meituan_products_%d_files_%s.zip",
+                    fileCount, timestamp);
+                fileStorageService.saveTemplateFile(zipFileName, zipData, merchantId, totalCount);
+                log.info("ZIP文件记录已保存：{}", zipFileName);
+            } catch (Exception e) {
+                log.error("保存文件记录失败", e);
+            }
+
+            // 生成成功后，如果是正式模式（非测试），将所有商品状态更新为"已上传"（status = 1）
+            if (!isTestMode) {
+                try {
+                    int updatedCount = productMapper.updateStatusByMerchantId(merchantId, 1);
+                    log.info("成功更新{}个商品状态为已上传", updatedCount);
+                } catch (Exception e) {
+                    log.error("更新商品状态失败", e);
+                }
+            }
+
+            // 记录操作日志
+            try {
+                long duration = System.currentTimeMillis() - startTime;
+                OperationLog operationLog = new OperationLog();
+                operationLog.setUserId(1L);
+                operationLog.setUsername("admin");
+                operationLog.setOperationType(isTestMode ? "GENERATE_ZIP_TEST" : "GENERATE_ZIP_ALL");
+                operationLog.setOperationDesc(String.format("分批导出商品模板为ZIP，%s共%d个商品，拆分为%d个Excel文件",
+                    isTestMode ? "测试模式 " : "", allProducts.size(), fileCount));
+                operationLog.setTargetType("PRODUCT");
+                operationLog.setTargetId(String.valueOf(merchantId));
+                operationLog.setResult(1);
+                operationLog.setDuration((int) duration);
+                operationLog.setCreatedAt(LocalDateTime.now());
+
+                operationLogMapper.insert(operationLog);
+                log.info("操作日志记录成功");
+            } catch (Exception e) {
+                log.error("记录操作日志失败", e);
+            }
+
+            log.info("成功生成ZIP文件，总大小：{}字节，耗时：{}ms", zipData.length,
+                System.currentTimeMillis() - startTime);
+
+            return zipData;
+
+        } catch (Exception e) {
+            log.error("生成ZIP文件失败", e);
+            throw new RuntimeException("生成ZIP文件失败：" + e.getMessage(), e);
+        }
+    }
+
     /**
      * 批量上传商品到美团平台
      * 
@@ -489,12 +700,114 @@ public class ProductService {
             // 清空本地数据库商品（不调用美团API，因为美团API不支持批量删除）
             int deletedCount = productMapper.deleteByMerchantId(merchantId);
             log.info("成功清空本地数据库商品，商家ID：{}，数量：{}", merchantId, deletedCount);
-            
+
             return ClearResult.success(deletedCount);
-            
+
         } catch (Exception e) {
             log.error("清空商品失败，商家ID：{}", merchantId, e);
             throw new RuntimeException("清空商品失败：" + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 逐个删除美团平台的所有商品
+     *
+     * @param merchantId 商家ID
+     * @param accessToken 访问令牌
+     * @return 删除结果
+     */
+    public ClearResult deleteAllProductsFromMeituan(Long merchantId, String accessToken) {
+        log.info("开始逐个删除美团平台商品，商家ID：{}", merchantId);
+
+        if (merchantId == null) {
+            throw new IllegalArgumentException("商家ID不能为空");
+        }
+
+        if (accessToken == null || accessToken.trim().isEmpty()) {
+            throw new IllegalArgumentException("访问令牌不能为空");
+        }
+
+        // 验证访问令牌
+        if (!"admin123".equals(accessToken)) {
+            throw new IllegalArgumentException("访问令牌无效");
+        }
+
+        try {
+            // 查询商家的所有商品
+            List<Product> allProducts = productMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Product>()
+                    .eq(Product::getMerchantId, merchantId)
+            );
+
+            int totalCount = allProducts.size();
+            log.info("需要处理的美团商品数量：{}", totalCount);
+
+            if (totalCount == 0) {
+                return ClearResult.success(0, 0, 0, "没有商品需要处理");
+            }
+
+            int successCount = 0;
+            int failedCount = 0;
+            int skippedCount = 0;
+            StringBuilder failedReasons = new StringBuilder();
+
+            // 逐个删除
+            for (int i = 0; i < allProducts.size(); i++) {
+                Product product = allProducts.get(i);
+
+                // 获取美团商品标识符：优先使用 meituanProductId，其次使用 skuId，最后使用 categoryId
+                String meituanProductId = product.getMeituanProductId();
+                if (meituanProductId == null || meituanProductId.trim().isEmpty()) {
+                    meituanProductId = product.getSkuId();
+                }
+                if (meituanProductId == null || meituanProductId.trim().isEmpty()) {
+                    meituanProductId = product.getCategoryId();
+                }
+                if (meituanProductId == null || meituanProductId.trim().isEmpty()) {
+                    // 如果没有任何标识符，跳过
+                    skippedCount++;
+                    log.warn("商品ID {} 没有任何标识符可用于删除，跳过", product.getId());
+                    continue;
+                }
+
+                try {
+                    meituanApiClient.deleteProduct(meituanProductId, accessToken);
+                    successCount++;
+
+                    // 每删除10个打印一次日志
+                    if (successCount % 10 == 0) {
+                        log.info("已删除 {}/{} 个美团商品", successCount, totalCount);
+                    }
+
+                    // 美团API有频率限制，添加短暂延迟
+                    Thread.sleep(100);
+
+                } catch (Exception e) {
+                    failedCount++;
+                    log.warn("删除商品失败，商品ID：{}，标识符：{}，原因：{}",
+                        product.getId(), meituanProductId, e.getMessage());
+                    failedReasons.append("商品ID ").append(product.getId())
+                        .append(" (标识符: ").append(meituanProductId).append(") 失败: ")
+                        .append(e.getMessage()).append("; ");
+                }
+            }
+
+            log.info("处理美团商品完成，总数：{}，成功：{}，失败：{}，跳过：{}",
+                totalCount, successCount, failedCount, skippedCount);
+
+            String message = String.format("处理完成：共 %d 个，成功 %d 个，失败 %d 个，跳过 %d 个",
+                totalCount, successCount, failedCount, skippedCount);
+
+            if (failedCount > 0) {
+                return ClearResult.failure(message, successCount, failedCount,
+                    failedReasons.length() > 500 ? failedReasons.substring(0, 500) : failedReasons.toString());
+            } else {
+                return ClearResult.success(totalCount, successCount, failedCount, message);
+            }
+
+        } catch (Exception e) {
+            log.error("删除美团商品失败，商家ID：{}", merchantId, e);
+            throw new RuntimeException("删除美团商品失败：" + e.getMessage(), e);
         }
     }
     

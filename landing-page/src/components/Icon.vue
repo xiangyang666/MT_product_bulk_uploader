@@ -81,6 +81,37 @@
       <polygon points="10 8 16 12 10 16 10 8" />
     </g>
 
+    <!-- Package -->
+    <g v-else-if="name === 'package'">
+      <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+      <line x1="12" y1="22.08" x2="12" y2="12" />
+    </g>
+
+    <!-- Monitor -->
+    <g v-else-if="name === 'monitor'">
+      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+    </g>
+
+    <!-- Gift -->
+    <g v-else-if="name === 'gift'">
+      <polyline points="20 12 20 22 4 22 4 12" />
+      <rect x="2" y="7" width="20" height="5" />
+      <line x1="12" y1="22" x2="12" y2="7" />
+      <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+      <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+    </g>
+
+    <!-- Lightbulb -->
+    <g v-else-if="name === 'lightbulb'">
+      <line x1="9" y1="18" x2="15" y2="18" />
+      <line x1="10" y1="22" x2="14" y2="22" />
+      <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+    </g>
+
     <!-- Default: File -->
     <g v-else>
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -94,7 +125,7 @@
 
 <script setup lang="ts">
 interface Props {
-  name: 'rocket' | 'book' | 'server' | 'help' | 'code' | 'api' | 'guide' | 'tutorial' | 'download' | 'arrow-right' | 'play'
+  name: 'rocket' | 'book' | 'server' | 'help' | 'code' | 'api' | 'guide' | 'tutorial' | 'download' | 'arrow-right' | 'play' | 'package' | 'monitor' | 'gift' | 'lightbulb'
   size?: number | string
 }
 

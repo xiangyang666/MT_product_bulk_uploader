@@ -50,6 +50,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/app-versions/latest/**").permitAll()
                 // 允许匿名访问下载链接接口（landing page下载需要）
                 .requestMatchers("/api/app-versions/*/download").permitAll()
+                // 允许匿名访问版本检查接口（应用自动更新需要）
+                .requestMatchers("/api/version/**").permitAll()
                 // 其他所有 API 都需要认证
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().authenticated()

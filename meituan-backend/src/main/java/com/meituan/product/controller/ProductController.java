@@ -360,68 +360,18 @@ public class ProductController {
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "startDate", required = false) String startDate,
             @RequestParam(value = "endDate", required = false) String endDate) {
-        log.info("查询商品列表，页码：{}，每页大小：{}，关键词：{}，开始日期：{}，结束日期：{}", 
+        log.info("查询商品列表，页码：{}，每页大小：{}，关键词：{}，开始日期：{}，结束日期：{}",
                 page, size, keyword, startDate, endDate);
-        
+
         try {
             // 使用默认商家ID = 1
             Long merchantId = 1L;
-            
-            // 获取所有商品
-            List<Product> allProducts = productService.getProductsByMerchantId(merchantId);
-            
-            // 如果有日期范围，进行过滤
-            if (startDate != null && endDate != null) {
-                try {
-                    LocalDateTime startDateTime = LocalDateTime.parse(startDate + "T00:00:00");
-                    LocalDateTime endDateTime = LocalDateTime.parse(endDate + "T23:59:59");
-                    
-                    allProducts = allProducts.stream()
-                        .filter(p -> {
-                            if (p.getCreatedTime() == null) return false;
-                            return !p.getCreatedTime().isBefore(startDateTime) && 
-                                   !p.getCreatedTime().isAfter(endDateTime);
-                        })
-                        .collect(java.util.stream.Collectors.toList());
-                    
-                    log.info("日期筛选后商品数量：{}", allProducts.size());
-                } catch (Exception e) {
-                    log.error("日期解析失败", e);
-                }
-            }
-            
-            // 如果有搜索关键词，进行过滤
-            if (keyword != null && !keyword.trim().isEmpty()) {
-                String searchKeyword = keyword.trim().toLowerCase();
-                allProducts = allProducts.stream()
-                    .filter(p -> 
-                        (p.getProductName() != null && p.getProductName().toLowerCase().contains(searchKeyword)) ||
-                        (p.getCategoryId() != null && p.getCategoryId().toLowerCase().contains(searchKeyword))
-                    )
-                    .collect(java.util.stream.Collectors.toList());
-            }
-            
-            // 计算总数
-            int total = allProducts.size();
-            
-            // 手动分页
-            int startIndex = (page - 1) * size;
-            int endIndex = Math.min(startIndex + size, total);
-            
-            List<Product> pagedProducts;
-            if (startIndex >= total) {
-                pagedProducts = new java.util.ArrayList<>();
-            } else {
-                pagedProducts = allProducts.subList(startIndex, endIndex);
-            }
-            
-            // 构建响应
-            java.util.Map<String, Object> result = new java.util.HashMap<>();
-            result.put("list", pagedProducts);
-            result.put("total", total);
-            result.put("page", page);
-            result.put("size", size);
-            
+
+            // 使用数据库层面的分页查询
+            java.util.Map<String, Object> result = productService.getProductsByMerchantIdPage(
+                merchantId, keyword, startDate, endDate, page, size
+            );
+
             return ApiResponse.success(result);
         } catch (Exception e) {
             log.error("查询商品列表失败", e);
@@ -489,23 +439,25 @@ public class ProductController {
     
     /**
      * 生成全部商品的美团上传模板
-     * 
+     *
      * @param merchantId 商家ID（可选，默认为1）
+     * @param limit 导出数量限制（可选，用于测试。默认为全部导出）
      * @return Excel文件
      */
     @PostMapping("/generate-all-template")
     public ResponseEntity<byte[]> generateAllTemplate(
-            @RequestParam(value = "merchantId", required = false) Long merchantId) {
-        log.info("接收到生成全部商品模板请求，商家ID：{}", merchantId);
-        
+            @RequestParam(value = "merchantId", required = false) Long merchantId,
+            @RequestParam(value = "limit", required = false, defaultValue = "10") Integer limit) {
+        log.info("接收到生成全部商品模板请求，商家ID：{}，导出数量限制：{}", merchantId, limit);
+
         try {
             // 如果没有传 merchantId，使用默认值 1
             if (merchantId == null) {
                 merchantId = 1L;
             }
-            
+
             // 生成模板
-            byte[] excelData = productService.generateAllProductsTemplate(merchantId);
+            byte[] excelData = productService.generateAllProductsTemplate(merchantId, limit);
             
             // 生成文件名
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
@@ -531,7 +483,54 @@ public class ProductController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    
+
+    /**
+     * 分批导出商品模板为ZIP文件（每个Excel最多2000条）
+     *
+     * @param merchantId 商家ID（可选，默认为1）
+     * @param limit 导出数量限制（可选，用于测试。默认为全部导出）
+     * @return ZIP文件
+     */
+    @PostMapping("/export-as-zip")
+    public ResponseEntity<byte[]> exportProductsAsZip(
+            @RequestParam(value = "merchantId", required = false) Long merchantId,
+            @RequestParam(value = "limit", required = false, defaultValue = "0") Integer limit) {
+        log.info("接收到分批导出请求，商家ID：{}，导出数量限制：{}", merchantId, limit);
+
+        try {
+            // 如果没有传 merchantId，使用默认值 1
+            if (merchantId == null) {
+                merchantId = 1L;
+            }
+
+            // 生成ZIP文件
+            byte[] zipData = productService.generateProductsTemplateAsZip(merchantId, limit);
+
+            // 生成文件名
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String fileName = "meituan_products_" + timestamp + ".zip";
+
+            // 设置响应头
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", fileName);
+            headers.setContentLength(zipData.length);
+
+            log.info("成功生成ZIP文件：{}，大小：{}字节", fileName, zipData.length);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(zipData);
+
+        } catch (IllegalArgumentException e) {
+            log.error("生成ZIP文件失败：{}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            log.error("生成ZIP文件失败", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
     /**
      * 批量上传商品到美团
      * 
@@ -592,16 +591,47 @@ public class ProductController {
             request.getMerchantId(), 
             request.getAccessToken()
         );
-        
+
         return ApiResponse.success(
-            String.format("成功清空%d条商品", result.getDeletedCount()), 
+            String.format("成功清空%d条商品", result.getDeletedCount()),
             result
         );
     }
-    
+
+    /**
+     * 逐个删除美团平台的所有商品
+     *
+     * @param request 清空请求
+     * @return 删除结果
+     */
+    @DeleteMapping("/delete-meituan")
+    public ApiResponse<ClearResult> deleteProductsFromMeituan(@RequestBody ClearRequest request) {
+        log.info("接收到删除美团商品请求，商家ID：{}", request.getMerchantId());
+
+        if (request.getMerchantId() == null) {
+            return ApiResponse.error(400, "商家ID不能为空");
+        }
+
+        if (request.getAccessToken() == null || request.getAccessToken().trim().isEmpty()) {
+            return ApiResponse.error(400, "访问令牌不能为空");
+        }
+
+        try {
+            ClearResult result = productService.deleteAllProductsFromMeituan(
+                request.getMerchantId(),
+                request.getAccessToken()
+            );
+
+            return ApiResponse.success(result.getMessage(), result);
+        } catch (Exception e) {
+            log.error("删除美团商品失败", e);
+            return ApiResponse.error(500, "删除美团商品失败：" + e.getMessage());
+        }
+    }
+
     /**
      * 删除单个商品
-     * 
+     *
      * @param id 商品ID
      * @return 删除结果
      */
