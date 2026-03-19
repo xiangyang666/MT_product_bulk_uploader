@@ -33,10 +33,11 @@ import java.util.List;
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
 public class ProductController {
-    
+
     private final ProductService productService;
     private final OperationLogService operationLogService;
     private final com.meituan.product.service.FileStorageService fileStorageService;
+    private final com.meituan.product.mapper.ProductMapper productMapper;
     
     /**
      * 获取商品统计数据
@@ -730,13 +731,74 @@ public class ProductController {
                 java.net.URLEncoder.encode(file.getFileName(), "UTF-8"));
             
             log.info("文件下载成功：{}", file.getFileName());
-            
+
             return ResponseEntity.ok()
                 .headers(headers)
                 .body(fileData);
         } catch (Exception e) {
             log.error("下载文件失败，文件ID：{}", fileId, e);
             return ResponseEntity.status(500).build();
+        }
+    }
+
+    /**
+     * 创建商品
+     *
+     * @param product 商品信息
+     * @return 创建的商品信息
+     */
+    @PostMapping
+    public ApiResponse<Product> createProduct(@RequestBody Product product) {
+        log.info("接收到创建商品请求，商品名称：{}", product.getProductName());
+
+        try {
+            // 设置默认值
+            if (product.getMerchantId() == null) {
+                product.setMerchantId(1L);
+            }
+            if (product.getStatus() == null) {
+                product.setStatus(0); // 待上传状态
+            }
+
+            // 保存商品
+            productMapper.insert(product);
+
+            log.info("成功创建商品，ID：{}", product.getId());
+            return ApiResponse.success("创建成功", product);
+        } catch (Exception e) {
+            log.error("创建商品失败", e);
+            return ApiResponse.error(500, "创建失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新商品
+     *
+     * @param id 商品ID
+     * @param product 商品信息
+     * @return 更新结果
+     */
+    @PutMapping("/{id}")
+    public ApiResponse<Product> updateProduct(@PathVariable Long id, @RequestBody Product product) {
+        log.info("接收到更新商品请求，ID：{}", id);
+
+        try {
+            Product existingProduct = productMapper.selectById(id);
+            if (existingProduct == null) {
+                return ApiResponse.error(404, "商品不存在");
+            }
+
+            // 设置ID
+            product.setId(id);
+
+            // 更新商品
+            productMapper.updateById(product);
+
+            log.info("成功更新商品，ID：{}", id);
+            return ApiResponse.success("更新成功", product);
+        } catch (Exception e) {
+            log.error("更新商品失败，ID：{}", id, e);
+            return ApiResponse.error(500, "更新失败：" + e.getMessage());
         }
     }
 }

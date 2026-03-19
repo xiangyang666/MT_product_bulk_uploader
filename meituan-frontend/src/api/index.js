@@ -155,6 +155,54 @@ export const downloadGeneratedFile = (fileId) => {
   })
 }
 
+// ==================== 商品管理 API ====================
+
+/**
+ * 创建商品
+ * @param {Object} product - 商品信息
+ * @returns {Promise<Product>}
+ */
+export const createProduct = (product) => {
+  return request.post('/products', product)
+}
+
+/**
+ * 获取商品详情
+ * @param {number} id - 商品ID
+ * @returns {Promise<Product>}
+ */
+export const getProduct = (id) => {
+  return request.get(`/products/${id}`)
+}
+
+/**
+ * 更新商品
+ * @param {number} id - 商品ID
+ * @param {Object} product - 商品信息
+ * @returns {Promise<Product>}
+ */
+export const updateProduct = (id, product) => {
+  return request.put(`/products/${id}`, product)
+}
+
+/**
+ * 删除商品
+ * @param {number} id - 商品ID
+ * @returns {Promise}
+ */
+export const deleteProduct = (id) => {
+  return request.delete(`/products/${id}`)
+}
+
+/**
+ * 批量删除商品
+ * @param {number[]} ids - 商品ID数组
+ * @returns {Promise}
+ */
+export const batchDeleteProducts = (ids) => {
+  return request.delete('/products/batch', { data: ids })
+}
+
 export default request
 
 
@@ -275,21 +323,31 @@ export const getTemplateStatus = (merchantId = 1) => {
 // ==================== 商品图片管理 API ====================
 
 /**
- * 上传商品图片
+ * 上传商品图片（支持单张或多张）
  * @param {number} productId - 商品ID
- * @param {File} file - 图片文件
+ * @param {File|File[]} files - 图片文件或文件数组
  * @param {Function} onProgress - 上传进度回调
  * @returns {Promise}
  */
-export const uploadProductImage = (productId, file, onProgress) => {
+export const uploadProductImage = (productId, files, onProgress) => {
   const formData = new FormData()
-  formData.append('file', file)
+  
+  // 支持单文件或多文件
+  if (Array.isArray(files)) {
+    // 多文件上传
+    files.forEach(file => {
+      formData.append('files', file)
+    })
+  } else {
+    // 单文件上传
+    formData.append('file', files)
+  }
   
   return request.post(`/products/${productId}/images/upload`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data'
     },
-    timeout: 60000, // 1分钟超时
+    timeout: 120000, // 2分钟超时（支持多文件）
     onUploadProgress: (progressEvent) => {
       if (onProgress && progressEvent.total) {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)

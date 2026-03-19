@@ -71,6 +71,14 @@
         <el-icon><Download /></el-icon>
         导出商品图片
       </el-button>
+      <el-button
+        type="primary"
+        @click="handleCreateProduct"
+        style="background-color: #FFD100; border-color: #FFD100; color: #333;"
+      >
+        <el-icon><Plus /></el-icon>
+        创建商品
+      </el-button>
     </div>
 
     <!-- 商品表格 -->
@@ -99,12 +107,19 @@
           <template #default="scope">
             <div style="display: flex; align-items: center; gap: 8px;">
               <el-image 
-                v-if="scope.row.productImage || scope.row.imageUrl"
-                :src="scope.row.productImage || scope.row.imageUrl" 
+                v-if="getFirstProductImage(scope.row)"
+                :src="getFirstProductImage(scope.row)" 
                 :preview-src-list="getProductImageList(scope.row)"
                 fit="cover"
                 style="width: 50px; height: 50px; border-radius: 4px; cursor: pointer;"
-              />
+              >
+                <template #error>
+                  <div style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: #f5f7fa; color: #909399; font-size: 12px;">
+                    无图片
+                  </div>
+                </template>
+              </el-image>
+              <span v-else style="color: #909399; font-size: 12px;">无图片</span>
               <el-button 
                 type="primary" 
                 size="small" 
@@ -261,23 +276,19 @@
         </el-table-column>
       </el-table>
       
-      <!-- 加载更多提示 -->
-      <div v-if="loadingMore" class="loading-more">
-        <el-icon class="is-loading"><Loading /></el-icon>
-        <span>加载中...</span>
+      <!-- 分页器 -->
+      <div class="pagination-container" v-if="total > 0">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+          background
+        />
       </div>
-      <div v-else-if="hasMore" class="load-more-tip">
-        滚动到底部加载更多
-      </div>
-      <div v-else-if="products.length > 0" class="no-more-tip">
-        已加载全部数据
-      </div>
-    </div>
-
-    <!-- 数据统计 -->
-    <div class="data-stats">
-      <span>已加载 {{ products.length }} 条</span>
-      <span v-if="total > 0">/ 共 {{ total }} 条</span>
     </div>
 
     <!-- 图片管理对话框 -->
@@ -295,6 +306,7 @@
             :show-file-list="false"
             :before-upload="beforeImageUpload"
             accept="image/*"
+            multiple
             :disabled="currentProductImages.length >= 5"
           >
             <el-button 
@@ -302,11 +314,11 @@
               :disabled="currentProductImages.length >= 5"
             >
               <el-icon><Upload /></el-icon>
-              上传图片
+              上传图片（可多选）
             </el-button>
           </el-upload>
           <div class="upload-tip">
-            最多上传5张图片，每张不超过10MB
+            最多上传5张图片，每张不超过10MB，可一次选择多张
             ({{ currentProductImages.length }}/5)
           </div>
         </div>
@@ -340,18 +352,96 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 创建商品对话框 -->
+    <el-dialog
+      v-model="createDialogVisible"
+      title="创建商品"
+      width="700px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="productFormRef"
+        :model="productForm"
+        :rules="productFormRules"
+        label-width="120px"
+      >
+        <el-form-item label="商品名称" prop="productName">
+          <el-input v-model="productForm.productName" placeholder="请输入商品名称" />
+        </el-form-item>
+        <el-form-item label="商品类目" prop="categoryName">
+          <el-input v-model="productForm.categoryName" placeholder="请输入商品类目名称" />
+        </el-form-item>
+        <el-form-item label="类目ID" prop="categoryId">
+          <el-input v-model="productForm.categoryId" placeholder="请输入类目ID" />
+        </el-form-item>
+        <el-form-item label="条形码" prop="upcEan">
+          <el-input v-model="productForm.upcEan" placeholder="请输入条形码" />
+        </el-form-item>
+        <el-form-item label="店内码/货号" prop="storeCode">
+          <el-input v-model="productForm.storeCode" placeholder="请输入店内码/货号" />
+        </el-form-item>
+        <el-form-item label="规格名称" prop="specName">
+          <el-input v-model="productForm.specName" placeholder="请输入规格名称" />
+        </el-form-item>
+        <el-form-item label="价格" prop="price">
+          <el-input-number v-model="productForm.price" :precision="2" :min="0" :step="0.1" placeholder="请输入价格" />
+        </el-form-item>
+        <el-form-item label="库存" prop="stock">
+          <el-input-number v-model="productForm.stock" :min="0" placeholder="请输入库存" />
+        </el-form-item>
+        <el-form-item label="重量" prop="weight">
+          <el-input v-model="productForm.weight" placeholder="请输入重量" />
+        </el-form-item>
+        <el-form-item label="重量单位" prop="weightUnit">
+          <el-select v-model="productForm.weightUnit" placeholder="请选择重量单位" style="width: 100%;">
+            <el-option label="克(g)" value="克(g)" />
+            <el-option label="千克(kg)" value="千克(kg)" />
+            <el-option label="毫升(ml)" value="毫升(ml)" />
+            <el-option label="升(L)" value="升(L)" />
+            <el-option label="个" value="个" />
+            <el-option label="件" value="件" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="品牌" prop="brand">
+          <el-input v-model="productForm.brand" placeholder="请输入品牌" />
+        </el-form-item>
+        <el-form-item label="起购数" prop="minPurchase">
+          <el-input-number v-model="productForm.minPurchase" :min="1" :step="1" placeholder="请输入起购数" />
+        </el-form-item>
+        <el-form-item label="售卖状态" prop="saleStatus">
+          <el-select v-model="productForm.saleStatus" placeholder="请选择售卖状态" style="width: 100%;">
+            <el-option label="在售" value="售卖中" />
+            <el-option label="停售" value="停售" />
+            <el-option label="售罄" value="售罄" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="商品描述" prop="description">
+          <el-input v-model="productForm.description" type="textarea" :rows="3" placeholder="请输入商品描述" />
+        </el-form-item>
+        <el-form-item label="商品卖点" prop="sellingPoint">
+          <el-input v-model="productForm.sellingPoint" placeholder="请输入商品卖点" />
+        </el-form-item>
+        <el-form-item label="店内分类" prop="storeCategory">
+          <el-input v-model="productForm.storeCategory" placeholder="请输入店内分类，格式：分类1>分类2" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmitProduct" :loading="submitting">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
-import { Search, Loading, Download, Upload } from '@element-plus/icons-vue'
-import request, { uploadProductImage, deleteProductImage, getProductImages, exportProductImages } from '@/api/index.js'
+import { Search, Loading, Download, Upload, Plus } from '@element-plus/icons-vue'
+import request, { uploadProductImage, deleteProductImage, getProductImages, exportProductImages, createProduct } from '@/api/index.js'
 
 const products = ref([])
 const loading = ref(false)
-const loadingMore = ref(false)
 const searchQuery = ref('')
 const dateRange = ref(null)
 const activeDateButton = ref(null) // 'today', 'yesterday', or null
@@ -359,13 +449,55 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const selectedIds = ref([])
-const hasMore = ref(true)
 const tableRef = ref(null)
 
 // 图片管理相关
 const imageDialogVisible = ref(false)
 const currentProduct = ref(null)
 const currentProductImages = ref([])
+const uploadQueue = ref([]) // 上传队列
+const isUploading = ref(false) // 是否正在上传
+let uploadTimer = null // 上传延迟定时器
+
+// 创建商品相关
+const createDialogVisible = ref(false)
+const submitting = ref(false)
+const productFormRef = ref(null)
+const productForm = ref({
+  productName: '',
+  categoryName: '',
+  categoryId: '',
+  upcEan: '',
+  storeCode: '',
+  specName: '',
+  price: 0.01,
+  stock: 100,
+  weight: 0,
+  weightUnit: '克(g)',
+  brand: '',
+  minPurchase: 1,
+  saleStatus: '售卖中',
+  description: '',
+  sellingPoint: '',
+  storeCategory: '',
+  merchantId: 1
+})
+
+// 表单验证规则
+const productFormRules = {
+  productName: [
+    { required: true, message: '请输入商品名称', trigger: 'blur' }
+  ],
+  categoryName: [
+    { required: true, message: '请输入商品类目', trigger: 'blur' }
+  ],
+  categoryId: [
+    { required: true, message: '请输入类目ID', trigger: 'blur' }
+  ],
+  price: [
+    { required: true, message: '请输入价格', trigger: 'blur' }
+  ]
+}
 
 // 格式化日期（YYYY-MM-DD）
 const formatDate = (dateTime) => {
@@ -471,12 +603,8 @@ const getAuditStatusType = (status) => {
   return typeMap[status] || 'warning'
 }
 
-const fetchProducts = async (append = false) => {
-  if (append) {
-    loadingMore.value = true
-  } else {
-    loading.value = true
-  }
+const fetchProducts = async () => {
+  loading.value = true
   
   try {
     const params = {
@@ -494,34 +622,99 @@ const fetchProducts = async (append = false) => {
     const response = await request.get('/products', { params })
     
     if (response.code === 200) {
-      const newProducts = response.data.list || []
-      
-      if (append) {
-        products.value = [...products.value, ...newProducts]
-      } else {
-        products.value = newProducts
-      }
-      
+      products.value = response.data.list || []
       total.value = response.data.total || 0
-      hasMore.value = products.value.length < total.value
+      
+      // 滚动到表格顶部
+      scrollToTop()
     }
   } catch (error) {
     ElMessage.error('获取商品列表失败')
   } finally {
     loading.value = false
-    loadingMore.value = false
   }
+}
+
+// 滚动到表格顶部
+const scrollToTop = () => {
+  if (tableRef.value) {
+    const tableBody = tableRef.value.$el.querySelector('.el-table__body-wrapper')
+    if (tableBody) {
+      tableBody.scrollTop = 0
+    }
+  }
+}
+
+// 处理页码变化
+const handlePageChange = (page) => {
+  currentPage.value = page
+  fetchProducts()
+}
+
+// 处理每页数量变化
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchProducts()
 }
 
 const handleSearch = () => {
   currentPage.value = 1
-  products.value = []
-  hasMore.value = true
   fetchProducts()
 }
 
 const handleSelectionChange = (selection) => {
   selectedIds.value = selection.map(item => item.id)
+}
+
+// 打开创建商品对话框
+const handleCreateProduct = () => {
+  // 重置表单
+  productForm.value = {
+    productName: '',
+    categoryName: '',
+    categoryId: '',
+    upcEan: '',
+    storeCode: '',
+    specName: '',
+    price: 0.01,
+    stock: 100,
+    weight: 0,
+    weightUnit: '克(g)',
+    brand: '',
+    minPurchase: 1,
+    saleStatus: '售卖中',
+    description: '',
+    sellingPoint: '',
+    storeCategory: '',
+    merchantId: 1
+  }
+  createDialogVisible.value = true
+}
+
+// 提交创建商品
+const handleSubmitProduct = async () => {
+  try {
+    // 表单验证
+    await productFormRef.value.validate()
+
+    submitting.value = true
+
+    const response = await createProduct(productForm.value)
+
+    if (response.code === 200) {
+      ElMessage.success('创建成功')
+      createDialogVisible.value = false
+      // 刷新商品列表
+      fetchProducts()
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('创建商品失败:', error)
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 
 const handleDelete = async (row) => {
@@ -628,8 +821,6 @@ const handleClearAll = async () => {
         ElMessage.success(`成功清除 ${response.data.deletedCount} 个商品`)
         // 刷新列表
         currentPage.value = 1
-        products.value = []
-        hasMore.value = true
         fetchProducts()
       }
     } finally {
@@ -717,27 +908,51 @@ const handleDeleteFromMeituan = async () => {
 
 // ==================== 图片管理功能 ====================
 
+// 获取商品的第一张图片（用于列表显示）
+const getFirstProductImage = (row) => {
+  try {
+    // 优先使用 productImages 字段（JSON数组）
+    if (row.productImages) {
+      const images = JSON.parse(row.productImages)
+      if (Array.isArray(images) && images.length > 0) {
+        return images[0]
+      }
+    }
+  } catch (e) {
+    console.error('解析productImages失败:', e)
+  }
+  
+  // 降级使用旧字段
+  return row.productImage || row.imageUrl || null
+}
+
 // 获取商品图片列表（用于预览）
 const getProductImageList = (row) => {
   try {
+    // 优先使用 productImages 字段（JSON数组）
     if (row.productImages) {
       const images = JSON.parse(row.productImages)
-      return Array.isArray(images) ? images : []
-    }
-    if (row.productImage || row.imageUrl) {
-      return [row.productImage || row.imageUrl]
+      if (Array.isArray(images) && images.length > 0) {
+        return images
+      }
     }
   } catch (e) {
-    if (row.productImage || row.imageUrl) {
-      return [row.productImage || row.imageUrl]
-    }
+    console.error('解析productImages失败:', e)
   }
+  
+  // 降级使用旧字段
+  if (row.productImage || row.imageUrl) {
+    return [row.productImage || row.imageUrl]
+  }
+  
   return []
 }
 
 // 打开图片管理对话框
 const handleManageImages = async (row) => {
   currentProduct.value = row
+  // 立即清空图片列表，避免显示上一个商品的图片
+  currentProductImages.value = []
   imageDialogVisible.value = true
   
   // 加载商品图片
@@ -764,37 +979,93 @@ const beforeImageUpload = (file) => {
     ElMessage.error('图片大小不能超过10MB')
     return false
   }
-  if (currentProductImages.value.length >= 5) {
-    ElMessage.error('每个商品最多只能上传5张图片')
+  
+  // 检查总数量限制（当前已有 + 队列中的 + 新文件）
+  const totalCount = currentProductImages.value.length + uploadQueue.value.length + 1
+  if (totalCount > 5) {
+    ElMessage.error(`每个商品最多只能上传5张图片，当前已有${currentProductImages.value.length}张，最多还能上传${5 - currentProductImages.value.length}张`)
     return false
   }
+  
   return true
 }
 
-// 处理图片上传
+// 处理图片上传（Element Plus会为每个文件单独调用此函数）
 const handleImageUpload = async ({ file }) => {
+  // 将文件添加到队列
+  uploadQueue.value.push(file)
+  
+  // 清除之前的定时器
+  if (uploadTimer) {
+    clearTimeout(uploadTimer)
+  }
+  
+  // 延迟500ms后批量上传（等待所有文件都添加到队列）
+  uploadTimer = setTimeout(async () => {
+    if (!isUploading.value && uploadQueue.value.length > 0) {
+      await processBatchUpload()
+    }
+  }, 500)
+}
+
+// 批量处理上传队列
+const processBatchUpload = async () => {
+  if (uploadQueue.value.length === 0 || isUploading.value) {
+    return
+  }
+  
+  isUploading.value = true
+  const filesToUpload = [...uploadQueue.value]
+  uploadQueue.value = []
+  
   const loading = ElLoading.service({
     lock: true,
-    text: '上传中...',
+    text: `准备上传${filesToUpload.length}张图片...`,
     background: 'rgba(0, 0, 0, 0.7)'
   })
 
   try {
-    const response = await uploadProductImage(currentProduct.value.id, file, (progress) => {
-      loading.setText(`上传中... ${progress}%`)
-    })
-
-    if (response.code === 200) {
-      currentProductImages.value = response.data.imageUrls
-      ElMessage.success('上传成功')
+    let successCount = 0
+    let failCount = 0
+    
+    // 逐个上传文件
+    for (let i = 0; i < filesToUpload.length; i++) {
+      const file = filesToUpload[i]
+      loading.setText(`正在上传第${i + 1}/${filesToUpload.length}张图片...`)
       
-      // 刷新商品列表
-      fetchProducts()
+      try {
+        const response = await uploadProductImage(currentProduct.value.id, file, (progress) => {
+          loading.setText(`正在上传第${i + 1}/${filesToUpload.length}张图片... ${progress}%`)
+        })
+
+        if (response.code === 200) {
+          currentProductImages.value = response.data.imageUrls
+          successCount++
+        } else {
+          failCount++
+        }
+      } catch (error) {
+        console.error('上传失败:', error)
+        failCount++
+      }
     }
+    
+    // 显示结果
+    if (failCount === 0) {
+      ElMessage.success(`成功上传${successCount}张图片`)
+    } else if (successCount === 0) {
+      ElMessage.error(`上传失败，请重试`)
+    } else {
+      ElMessage.warning(`成功上传${successCount}张，失败${failCount}张`)
+    }
+    
+    // 刷新商品列表
+    await fetchProducts()
   } catch (error) {
     ElMessage.error('上传失败')
   } finally {
     loading.close()
+    isUploading.value = false
   }
 }
 
@@ -889,25 +1160,6 @@ const handleExportImages = async () => {
 
 onMounted(async () => {
   selectToday()
-  
-  // 等待 DOM 渲染完成后监听表格内部滚动
-  await nextTick()
-  
-  if (tableRef.value) {
-    const tableBody = tableRef.value.$el.querySelector('.el-table__body-wrapper')
-    if (tableBody) {
-      tableBody.addEventListener('scroll', (event) => {
-        const { scrollTop, scrollHeight, clientHeight } = event.target
-        
-        // 滚动到底部时加载更多（提前50px触发）
-        if (scrollTop + clientHeight >= scrollHeight - 50 && hasMore.value && !loadingMore.value && !loading.value) {
-          console.log('触发加载更多')
-          currentPage.value++
-          fetchProducts(true)
-        }
-      })
-    }
-  }
 })
 </script>
 
@@ -949,40 +1201,11 @@ onMounted(async () => {
   margin-bottom: 16px;
 }
 
-.loading-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  color: #409eff;
-  gap: 8px;
-}
-
-.load-more-tip {
-  text-align: center;
-  padding: 16px;
-  color: #909399;
-  font-size: 14px;
-}
-
-.no-more-tip {
-  text-align: center;
-  padding: 16px;
-  color: #c0c4cc;
-  font-size: 14px;
-}
-
-.data-stats {
+.pagination-container {
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 8px;
-  padding: 16px;
-  background-color: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  font-size: 14px;
-  color: #606266;
+  padding: 20px 0;
+  margin-top: 16px;
 }
 
 /* 今日导入高亮 */
